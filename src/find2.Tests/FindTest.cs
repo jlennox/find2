@@ -14,10 +14,16 @@ namespace find2.Tests
     {
         public FindTestPathType FileType { get; set; }
         public string Path { get; set; }
+        public bool Expected { get; set; }
 
         public static FindTestPath File(params string[] paths)
         {
             return new() { FileType = FindTestPathType.File, Path = System.IO.Path.Combine(paths) };
+        }
+
+        public static FindTestPath ExpectedFile(params string[] paths)
+        {
+            return new() { FileType = FindTestPathType.File, Path = System.IO.Path.Combine(paths), Expected = true };
         }
 
         public static FindTestPath Dir(params string[] paths)
@@ -39,7 +45,7 @@ namespace find2.Tests
                     System.IO.File.WriteAllBytes(name, Array.Empty<byte>());
                     break;
                 default:
-                    throw new ArgumentOutOfRangeException();
+                    throw new ArgumentOutOfRangeException(nameof(FileType), FileType, "Unknown FileType.");
             }
         }
     }
@@ -49,6 +55,7 @@ namespace find2.Tests
     internal sealed class FindTest : IDisposable
     {
         public readonly string Root;
+        public readonly List<string> Expected = new();
 
         public FindTest(IEnumerable<FindTestPath> files)
         {
@@ -58,6 +65,8 @@ namespace find2.Tests
             foreach (var file in files)
             {
                 file.Create(Root);
+
+                if (file.Expected) Expected.Add(Combine(file.Path));
             }
         }
 

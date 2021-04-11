@@ -11,7 +11,7 @@ namespace find2.Tests
             const string foundItem = "I'm found";
 
             using var test = new FindTest(new[] {
-                FindTestPath.File(foundItem),
+                FindTestPath.ExpectedFile(foundItem),
                 FindTestPath.File("I'm not found"),
             });
 
@@ -21,9 +21,7 @@ namespace find2.Tests
             find.Match += match => found.Add(match);
             find.Run();
 
-            CollectionAssert.AreEquivalent(
-                new[] { test.Combine(foundItem) },
-                found);
+            CollectionAssert.AreEquivalent(test.Expected, found);
         }
 
         [Test]
@@ -32,10 +30,10 @@ namespace find2.Tests
             const string foundItem = "I'm found";
 
             using var test = new FindTest(new[] {
-                FindTestPath.File("sub dir1", foundItem),
+                FindTestPath.ExpectedFile("sub dir1", foundItem),
                 FindTestPath.File("sub dir1", "also filename"),
-                FindTestPath.File("sub dir2", foundItem),
-                FindTestPath.File(foundItem),
+                FindTestPath.ExpectedFile("sub dir2", foundItem),
+                FindTestPath.ExpectedFile(foundItem),
             });
 
             var found = new List<string>();
@@ -44,13 +42,7 @@ namespace find2.Tests
             find.Match += match => found.Add(match);
             find.Run();
 
-            CollectionAssert.AreEquivalent(
-                new[] {
-                    test.Combine("sub dir1", foundItem),
-                    test.Combine("sub dir2", foundItem),
-                    test.Combine(foundItem),
-                },
-                found);
+            CollectionAssert.AreEquivalent(test.Expected, found);
         }
     }
 }
