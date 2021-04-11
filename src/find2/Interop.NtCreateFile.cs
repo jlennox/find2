@@ -231,9 +231,8 @@ namespace find2
                 FileShare.ReadWrite | FileShare.Delete,
                 FileMode.Open,
                 FileOperations.FILE_FLAG_BACKUP_SEMANTICS);
-
-
         }
+
         internal static unsafe IntPtr NtCreateDirectoryHandle(ReadOnlySpan<char> path, IntPtr rootDirectory)
         {
             fixed (char* pathPtr = &MemoryMarshal.GetReference(path))

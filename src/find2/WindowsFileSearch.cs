@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
 
@@ -121,11 +122,25 @@ namespace find2
                 }
 
                 _current = (FILE_DIRECTORY_INFORMATION*)_buffer.Buffer;
+
+                while (true)
+                {
+                    // Slip past "." and ".." entries.
+                    if (!_current->IsParentDirectoryEntry()) break;
+
+                    _current = FILE_DIRECTORY_INFORMATION.GetNextInfo(_current);
+
+                    if (_current == null)
+                    {
+                        return MoveNext();
+                    }
+                }
             }
 
             return true;
         }
 
+        // TODO
         public void Reset() { }
 
         public IFileEntry Current
@@ -135,7 +150,7 @@ namespace find2
                 if (_current == null) return default;
 
                 return new WindowsFileEntry(
-                    _current->IsDirectoryEntry(),
+                    (_current->FileAttributes & FileAttributes.Directory) != 0,
                     new string(_current->FileName));
             }
         }

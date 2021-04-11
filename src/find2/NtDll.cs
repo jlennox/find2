@@ -4,38 +4,10 @@ using System.Runtime.InteropServices;
 
 namespace find2
 {
-    internal static partial class Libraries
+    internal static class Libraries
     {
-        internal const string Advapi32 = "advapi32.dll";
-        internal const string BCrypt = "BCrypt.dll";
-        internal const string Crypt32 = "crypt32.dll";
-        internal const string CryptUI = "cryptui.dll";
-        internal const string Gdi32 = "gdi32.dll";
-        internal const string HttpApi = "httpapi.dll";
-        internal const string IpHlpApi = "iphlpapi.dll";
         internal const string Kernel32 = "kernel32.dll";
-        internal const string Mswsock = "mswsock.dll";
-        internal const string NCrypt = "ncrypt.dll";
         internal const string NtDll = "ntdll.dll";
-        internal const string Odbc32 = "odbc32.dll";
-        internal const string Ole32 = "ole32.dll";
-        internal const string OleAut32 = "oleaut32.dll";
-        internal const string Pdh = "pdh.dll";
-        internal const string Secur32 = "secur32.dll";
-        internal const string Shell32 = "shell32.dll";
-        internal const string SspiCli = "sspicli.dll";
-        internal const string User32 = "user32.dll";
-        internal const string Version = "version.dll";
-        internal const string WebSocket = "websocket.dll";
-        internal const string WinHttp = "winhttp.dll";
-        internal const string WinMM = "winmm.dll";
-        internal const string Wldap32 = "wldap32.dll";
-        internal const string Ws2_32 = "ws2_32.dll";
-        internal const string Wtsapi32 = "wtsapi32.dll";
-        internal const string CompressionNative = "System.IO.Compression.Native";
-        internal const string GlobalizationNative = "System.Globalization.Native";
-        internal const string MsQuic = "msquic.dll";
-        internal const string HostPolicy = "hostpolicy.dll";
     }
 
     public struct LongFileTime
@@ -47,7 +19,7 @@ namespace find2
         internal long TicksSince1601;
 #pragma warning restore CS0649
 
-        internal DateTimeOffset ToDateTimeOffset() => new DateTimeOffset(DateTime.FromFileTimeUtc(TicksSince1601));
+        internal DateTimeOffset ToDateTimeOffset() => new(DateTime.FromFileTimeUtc(TicksSince1601));
     }
 
 
@@ -91,33 +63,50 @@ namespace find2
         //public uint EaSize;
 
         public char _fileName;
-        public ReadOnlySpan<char> FileName { get { fixed (char* c = &_fileName) { return new ReadOnlySpan<char>(c, (int)FileNameLength / sizeof(char)); } } }
+
+        public ReadOnlySpan<char> FileName
+        {
+            get
+            {
+                fixed (char* c = &_fileName)
+                {
+                    return new ReadOnlySpan<char>(c, (int)FileNameLength / sizeof(char));
+                }
+            }
+        }
 
         /// <summary>
         /// Gets the next info pointer or null if there are no more.
         /// </summary>
-        public static unsafe FILE_DIRECTORY_INFORMATION* GetNextInfo(FILE_DIRECTORY_INFORMATION* info)
+        public static FILE_DIRECTORY_INFORMATION* GetNextInfo(FILE_DIRECTORY_INFORMATION* info)
         {
-            if (info == null)
-                return null;
+            if (info == null) return null;
 
-            uint nextOffset = info->NextEntryOffset;
-            if (nextOffset == 0)
-                return null;
+            var nextOffset = info->NextEntryOffset;
+            if (nextOffset == 0) return null;
 
             return (FILE_DIRECTORY_INFORMATION*)((byte*)info + nextOffset);
         }
 
-        public bool IsDirectoryEntry()
+        // Returns true if the filename is '.' or '..' and is a directory.
+        public bool IsParentDirectoryEntry()
         {
+            // Must be a directory.
+            if ((FileAttributes & FileAttributes.Directory) == 0) return false;
+
+            // Must be a file length of 1 or 2.
             if (FileNameLength > sizeof(char) * 2) return false;
+
+            // Must start with a '.' character.
             if (_fileName != '.') return false;
 
+            // Matched '.'
             if (FileNameLength == sizeof(char))
             {
                 return true;
             }
 
+            // Matched '..'
             fixed (char* filenamePtr = &_fileName)
             {
                 if (filenamePtr[1] == '.')
