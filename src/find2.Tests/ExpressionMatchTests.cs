@@ -1,4 +1,5 @@
-﻿using NUnit.Framework;
+﻿using System;
+using NUnit.Framework;
 
 namespace find2.Tests
 {
@@ -10,15 +11,97 @@ namespace find2.Tests
             return new WindowsFileEntry(false, name);
         }
 
+        private static void Test(string param)
+        {
+            Test(param, null, null);
+        }
+
+        private static void Test(string param, string[] matches, string[] mismatches, bool toUpper = false)
+        {
+            Test(param.Split(' '), matches, mismatches, toUpper);
+        }
+
+        private static void Test(string[] param, string[] matches, string[] mismatches, bool toUpper = false)
+        {
+            var matcher = ExpressionMatch.Build(param).Match;
+
+            foreach (var match in matches ?? Array.Empty<string>())
+            {
+                Assert.IsTrue(matcher == null || matcher(File(match, toUpper)));
+            }
+
+            foreach (var mismatch in mismatches ?? Array.Empty<string>())
+            {
+                Assert.IsFalse(matcher != null && matcher(File(mismatch, toUpper)));
+            }
+        }
+
+        // Ensure the `Test()` method works as expected.
+        [Test]
+        public void TestSanityCheck()
+        {
+            Assert.Throws<AssertionException>(() =>
+                Test("-name foobaxr", new[] {
+                    "foobar"
+                }, new[] {
+                    "notfoobar",
+                    "foobarnot"
+                }));
+
+            Assert.Throws<AssertionException>(() =>
+                Test("-name foobaxr", new[] {
+                    "foobar"
+                }, new[] {
+                    "foobaxr",
+                    "foobarnot"
+                }));
+
+            Test("-name FOOBAR", new[] {
+                "foobar"
+            }, new[] {
+                "foobaxr",
+                "foobarnot"
+            }, true);
+
+            Assert.Throws<AssertionException>(() =>
+                Test("-name foobar", new[] {
+                    "foobar"
+                }, new[] {
+                    "foobaxr",
+                    "foobarnot"
+                }, true));
+        }
+
+        // Ensure nothing is using the wrong match method. It's possible for
+        // most of the tests to pass as those it has the inner globs.
+        [Test]
+        [TestCase("foobar", nameof(ExpressionMatch.NameEquals))]
+        [TestCase("foobar*", nameof(ExpressionMatch.NameStartsWith))]
+        [TestCase("*foobar", nameof(ExpressionMatch.NameEndsWith))]
+        [TestCase("*foobar*", nameof(ExpressionMatch.NameContains))]
+        [TestCase("foo*bar", nameof(ExpressionMatch.NameRegex))]
+        [TestCase("*foo*bar*", nameof(ExpressionMatch.NameRegex))]
+        [TestCase("*foo*bar", nameof(ExpressionMatch.NameRegex))]
+        [TestCase("foo*bar*", nameof(ExpressionMatch.NameRegex))]
+        public void CorrectMatchMethod(string match, string expectedMethod)
+        {
+            ExpressionMatch.NameBlob(match, false, out var actualMethod);
+            Assert.AreEqual(expectedMethod, actualMethod);
+        }
+
         [Test]
         [TestCase("-name", false)]
         [TestCase("-iname", true)]
         public void NoGlob(string param, bool toUpper)
         {
-            var matcher = ExpressionMatch.Build(param, "foobar");
-            Assert.IsTrue(matcher(File("foobar", toUpper)));
-            Assert.IsFalse(matcher(File("notfoobar", toUpper)));
-            Assert.IsFalse(matcher(File("foobarnot", toUpper)));
+            Test($"{param} foobar",
+                matches: new[] {
+                    "foobar",
+                },
+                mismatches: new[] {
+                    "notfoobar",
+                    "foobarnot",
+                }, toUpper);
         }
 
         [Test]
@@ -26,10 +109,14 @@ namespace find2.Tests
         [TestCase("-iname", true)]
         public void StartingGlob(string param, bool toUpper)
         {
-            var matcher = ExpressionMatch.Build(param, "*foobar");
-            Assert.IsTrue(matcher(File("foobar", toUpper)));
-            Assert.IsTrue(matcher(File("notfoobar", toUpper)));
-            Assert.IsFalse(matcher(File("foobarnot", toUpper)));
+            Test($"{param} *foobar",
+                matches: new[] {
+                    "foobar",
+                    "notfoobar",
+                },
+                mismatches: new[] {
+                    "foobarnot"
+                }, toUpper);
         }
 
         [Test]
@@ -37,10 +124,14 @@ namespace find2.Tests
         [TestCase("-iname", true)]
         public void EndingGlob(string param, bool toUpper)
         {
-            var matcher = ExpressionMatch.Build(param, "foobar*");
-            Assert.IsTrue(matcher(File("foobar", toUpper)));
-            Assert.IsFalse(matcher(File("notfoobar", toUpper)));
-            Assert.IsTrue(matcher(File("foobarnot", toUpper)));
+            Test($"{param} foobar*",
+                matches: new[] {
+                    "foobar",
+                    "foobarnot",
+                },
+                mismatches: new[] {
+                    "notfoobar",
+                }, toUpper);
         }
 
         [Test]
@@ -48,10 +139,13 @@ namespace find2.Tests
         [TestCase("-iname", true)]
         public void StartingAndEndingGlob(string param, bool toUpper)
         {
-            var matcher = ExpressionMatch.Build(param, "*foobar*");
-            Assert.IsTrue(matcher(File("foobar", toUpper)));
-            Assert.IsTrue(matcher(File("notfoobar", toUpper)));
-            Assert.IsTrue(matcher(File("foobarnot", toUpper)));
+            Test($"{param} *foobar*",
+                matches: new[] {
+                    "foobar",
+                    "foobarnot",
+                    "notfoobar",
+                },
+                mismatches: null, toUpper);
         }
 
         [Test]
@@ -59,11 +153,17 @@ namespace find2.Tests
         [TestCase("-iname", true)]
         public void CenterGlobs(string param, bool toUpper)
         {
-            var matcher = ExpressionMatch.Build(param, "*foo*bar*");
-            Assert.IsTrue(matcher(File("foobar", toUpper)));
-            Assert.IsTrue(matcher(File("notfoobar", toUpper)));
-            Assert.IsTrue(matcher(File("foobarnot", toUpper)));
-            Assert.IsTrue(matcher(File("foonotbar", toUpper)));
+            Test($"{param} *foo*bar*",
+                matches: new[] {
+                    "foobar",
+                    "notfoobar",
+                    "foobarnot",
+                    "foonotbar",
+                },
+                mismatches: new[] {
+                    "foo",
+                    "bar",
+                }, toUpper);
         }
 
         [Test]
@@ -71,24 +171,33 @@ namespace find2.Tests
         [TestCase("-iname", true)]
         public void MultipleExpressions(string param, bool toUpper)
         {
-            var matcher = ExpressionMatch.Build(param, "*foo*bar*", param, "*foo*bar*", param, "*foo*bar*");
-            Assert.IsTrue(matcher(File("foobar", toUpper)));
-            Assert.IsTrue(matcher(File("notfoobar", toUpper)));
-            Assert.IsTrue(matcher(File("foobarnot", toUpper)));
-            Assert.IsTrue(matcher(File("foonotbar", toUpper)));
+            Test($"{param} *foo*bar* {param} *foo*bar* {param} *foo*bar*",
+                matches: new[] {
+                    "foobar",
+                    "notfoobar",
+                    "foobarnot",
+                    "foonotbar",
+                },
+                mismatches: new[] {
+                    "foo",
+                    "bar",
+                }, toUpper);
         }
 
-
         [Test]
-        [TestCase("-name", false)]
-        [TestCase("-iname", true)]
-        public void EmptyAlwaysMatches(string param, bool toUpper)
+        [TestCase(false)]
+        [TestCase(true)]
+        public void EmptyAlwaysMatches(bool toUpper)
         {
-            var matcher = ExpressionMatch.Build();
-            Assert.IsTrue(matcher(File("foobar", toUpper)));
-            Assert.IsTrue(matcher(File("notfoobar", toUpper)));
-            Assert.IsTrue(matcher(File("foobarnot", toUpper)));
-            Assert.IsTrue(matcher(File("foonotbar", toUpper)));
+            Test(Array.Empty<string>(),
+                matches: new[] {
+                    "foobar",
+                    "notfoobar",
+                    "foobarnot",
+                    "foonotbar",
+                },
+                mismatches: null,
+                toUpper);
         }
 
         [Test]
@@ -96,10 +205,14 @@ namespace find2.Tests
         [TestCase("-not")]
         public void NotInvertsMatch(string param)
         {
-            var matcher = ExpressionMatch.Build(param, "-name", "foobar");
-            Assert.IsFalse(matcher(File("foobar")));
-            Assert.IsTrue(matcher(File("notfoobar")));
-            Assert.IsTrue(matcher(File("foobarnot")));
+            Test($"{param} -name foobar",
+                matches: new[] {
+                    "notfoobar",
+                    "foobarnot",
+                },
+                mismatches: new[] {
+                    "foobar",
+                });
         }
 
         [Test]
@@ -107,27 +220,77 @@ namespace find2.Tests
         [TestCase("-o")]
         public void OrOperator(string param)
         {
-            var matcher = ExpressionMatch.Build("-name", "foobar", param, "-name", "foobar2");
-            Assert.IsTrue(matcher(File("foobar")));
-            Assert.IsTrue(matcher(File("foobar2")));
-            Assert.IsFalse(matcher(File("notfoobar")));
-            Assert.IsFalse(matcher(File("foobarnot")));
+            Test($"-name foobar {param} -name foobar2",
+                matches: new[] {
+                    "foobar",
+                    "foobar2",
+                },
+                mismatches: new[] {
+                    "notfoobar",
+                    "foobarnot",
+                });
         }
 
         [Test]
         public void Parentheses()
         {
-            var matcher = ExpressionMatch.Build("-name", "foobar*", "-and", "(", "-name", "*baz", "-or", "-name", "*faz", ")");
-            Assert.IsTrue(matcher(File("foobar baz")));
-            Assert.IsTrue(matcher(File("foobar faz")));
-            Assert.IsFalse(matcher(File("foobar")));
-            Assert.IsFalse(matcher(File("notfoobar bazz")));
-            Assert.IsFalse(matcher(File("foobarnot")));
+            Test("-name foobar* -and ( -name *.baz -or -name *.faz )",
+                matches: new[] {
+                    "foobar.baz",
+                    "foobar.faz",
+                },
+                mismatches: new[] {
+                    "foobar",
+                    "notfoobar.bazz",
+                    "foobarnot",
+                });
 
             // Starting/ending parentheses are simplified out because they'd need to be special cased if not.
-            matcher = ExpressionMatch.Build("(", "-name", "foobar*", ")");
-            Assert.IsTrue(matcher(File("foobar baz")));
-            Assert.IsTrue(matcher(File("foobar faz")));
+            Test("( -name foobar* )",
+                matches: new[] {
+                    "foobar.baz",
+                    "foobar.faz",
+                },
+                mismatches: null);
+
+            // Empty parentheses don't blow up.
+            Test("-true ( )",
+                matches: new[] {
+                    "foobar.baz",
+                    "foobar.faz",
+                },
+                mismatches: null);
+
+            Test("( )",
+                matches: new[] {
+                    "foobar.baz",
+                    "foobar.faz",
+                },
+                mismatches: null);
+
+            // Unbalanced parenthesis exception.
+            Assert.Throws<Exception>(() => Test("-name foobar* ) -true"));
+            Assert.Throws<Exception>(() => Test("-name foobar* ( -true"));
+            Assert.Throws<Exception>(() => Test("( -name foobar* ( ( -true ) )"));
+            Assert.Throws<Exception>(() => Test("( -name foobar* ( ( ) ) -true ) )"));
+        }
+
+        [Test]
+        public void TrueAndFalse()
+        {
+            Test("-false",
+                matches: null,
+                mismatches: new[] {
+                    "foobar.baz",
+                    "foobar.faz",
+                });
+
+            Test("-true",
+                matches: new[] {
+                    "foobar.baz",
+                    "foobar.faz",
+                },
+                mismatches: null);
         }
     }
 }
