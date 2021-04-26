@@ -6,14 +6,13 @@ using System.Reflection;
 using System.Text.RegularExpressions;
 using MatchExpression = System.Func<find2.WindowsFileEntry, bool>;
 
-#nullable enable
 #pragma warning disable CA2208 // Instantiate argument exceptions correctly
 
 namespace find2
 {
-    internal enum FollowSymbolicLinks
+    internal enum FollowSymbolicLinkBehavior
     {
-        Never = 0, Always, WhenArgument
+        Never, Always, WhenArgument
     }
 
     [Flags]
@@ -29,12 +28,18 @@ namespace find2
         Tree = 1 << 6,
     }
 
+    internal enum DirectoryEngine
+    {
+        Default, Windows, Dotnet
+    }
+
     internal class FindArguments
     {
         public DebugOptions DebugOptions = DebugOptions.None;
         public int OptimizationLevel;
         public string Root = ".";
-        public FollowSymbolicLinks FollowSymbolicLinks = FollowSymbolicLinks.Never;
+        public FollowSymbolicLinkBehavior FollowSymbolicLinkBehavior = FollowSymbolicLinkBehavior.Never;
+        public DirectoryEngine DirectoryEngine;
 
         // If null, all results should match.
         public MatchExpression? Match;
@@ -57,6 +62,17 @@ namespace find2
             { "search", DebugOptions.Search },
             { "stat", DebugOptions.Stat },
             { "tree", DebugOptions.Tree },
+        };
+
+        private static readonly IReadOnlyDictionary<string, DirectoryEngine> _engineLookup = new Dictionary<string, DirectoryEngine>
+        {
+            { "default", DirectoryEngine.Default },
+            { "windows", DirectoryEngine.Windows },
+            { "dotnet", DirectoryEngine.Dotnet },
+        };
+
+        private static readonly IReadOnlySet<string> _matchOptions = new HashSet<string> {
+            "(", ")", "-name", "-iname", "-regex", "-iregex", "-true", "-false", "-not", "!", "-or", "-o", "-and", "-a"
         };
 
         public static FindArguments Build(params string[]? arguments)
@@ -85,13 +101,13 @@ namespace find2
                 switch (arg)
                 {
                     case "-P":
-                        findArguments.FollowSymbolicLinks = FollowSymbolicLinks.Never;
+                        findArguments.FollowSymbolicLinkBehavior = FollowSymbolicLinkBehavior.Never;
                         break;
                     case "-L":
-                        findArguments.FollowSymbolicLinks = FollowSymbolicLinks.Always;
+                        findArguments.FollowSymbolicLinkBehavior = FollowSymbolicLinkBehavior.Always;
                         break;
                     case "-H":
-                        findArguments.FollowSymbolicLinks = FollowSymbolicLinks.WhenArgument;
+                        findArguments.FollowSymbolicLinkBehavior = FollowSymbolicLinkBehavior.WhenArgument;
                         break;
                     case "-D":
                         var debugOptions = GetArgument(arg).Split(',');
@@ -99,11 +115,20 @@ namespace find2
                         {
                             if (_debugOptionLookup.TryGetValue(debugOption, out var option))
                             {
-                                throw new Exception($"Unsupported -D flag, {debugOption}");
+                                throw new Exception($"Unsupported {arg} flag, {debugOption}");
                             }
 
                             findArguments.DebugOptions |= option;
                         }
+                        break;
+                    case "--engine":
+                        var engineOption = GetArgument(arg);
+                        if (_engineLookup.TryGetValue(engineOption, out var engine))
+                        {
+                            throw new Exception($"Unsupported {arg} flag, {engineOption}");
+                        }
+
+                        findArguments.DirectoryEngine = engine;
                         break;
                     case "-0level": findArguments.OptimizationLevel = 0; break;
                     case "-1level": findArguments.OptimizationLevel = 1; break;
@@ -116,7 +141,7 @@ namespace find2
                 }
             }
 
-            if (arguments.Length < i && !arguments[i].StartsWith('-'))
+            if (arguments.Length > i && !_matchOptions.Contains(arguments[i]))
             {
                 findArguments.Root = arguments[i];
                 ++i;
@@ -275,7 +300,6 @@ namespace find2
             // "foo"
             matchType = nameof(NameEquals);
             return NameEquals(match, caseInsensitive);
-
         }
 
         internal static MethodCallExpression NameStartsWith(string match, bool caseInsensitive)

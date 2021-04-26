@@ -3,6 +3,7 @@ A prototype of a high speed cross platform GNU `find` replacement.
 Goals:
 ----
 * Efficent multi-threading.
+* Dynamically compiles the find expression for increased execution speed.
 * Cross platform and usage of latest available APIs.
 * Fall back with native dotnet core API incase the platform does not have a custom written driver.
 * Argument compatible with GNU `find`.

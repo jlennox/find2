@@ -11,7 +11,7 @@ namespace find2
         {
         }
 
-        public override IEnumerator<IFileEntry> GetContents(string directory)
+        public override IEnumerator<WindowsFileEntry> GetContents(string directory)
         {
             foreach (var entry in Directory.GetFiles(directory))
             {

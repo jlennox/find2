@@ -25,7 +25,7 @@ namespace find2
         where T : IFileEntry
     {
         public abstract void Initialize();
-        public abstract IEnumerator<IFileEntry> GetContents(string directory);
+        public abstract IEnumerator<WindowsFileEntry> GetContents(string directory);
         public abstract void Dispose();
     }
 }

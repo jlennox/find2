@@ -5,10 +5,15 @@ namespace find2.Tests
 {
     public class Tests
     {
+        private static Find CreateFind(string args)
+        {
+            return new(ExpressionMatch.Build(args.Split(' ')));
+        }
+
         [Test]
         public void TestSingleItemAtRootIsFound()
         {
-            const string foundItem = "I'm found";
+            const string foundItem = "I'm_found";
 
             using var test = new FindTest(new[] {
                 FindTestPath.ExpectedFile(foundItem),
@@ -17,8 +22,8 @@ namespace find2.Tests
 
             var found = new List<string>();
 
-            var find = new Find(foundItem, new[] { test.Root });
-            find.Match += match => found.Add(match);
+            var find = CreateFind($"{test.Root} -name {foundItem}");
+            find.Match += (_, fullPath) => found.Add(fullPath);
             find.Run();
 
             CollectionAssert.AreEquivalent(test.Expected, found);
@@ -27,7 +32,7 @@ namespace find2.Tests
         [Test]
         public void TestMultipleItemsWithSomeDepth()
         {
-            const string foundItem = "I'm found";
+            const string foundItem = "I'm_found";
 
             using var test = new FindTest(new[] {
                 FindTestPath.ExpectedFile("sub dir1", foundItem),
@@ -38,8 +43,8 @@ namespace find2.Tests
 
             var found = new List<string>();
 
-            var find = new Find(foundItem, new[] { test.Root });
-            find.Match += match => found.Add(match);
+            var find = CreateFind($"{test.Root} -name {foundItem}");
+            find.Match += (_, fullPath) => found.Add(fullPath);
             find.Run();
 
             CollectionAssert.AreEquivalent(test.Expected, found);

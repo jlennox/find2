@@ -19,22 +19,22 @@ namespace find2
         public int ThreadCount = 8;
 
         private readonly ConcurrentQueue<QueuedDir> _queuedDir = new();
-        private readonly string _match;
+        private readonly FindArguments _arguments;
         private readonly CancellationTokenSource _cts = new();
         private readonly AutoResetEvent _availableWorkEvent = new(false);
         private readonly Thread[] _threads;
         private readonly AutoResetEvent _noWorkSignal = new(false);
         private int _noWorkWaitingCount = 0;
 
-        public event Action<string> Match;
+        public event Action<WindowsFileEntry, string> Match;
 
-        public Find(string match, IEnumerable<string> rootDirectories)
+        public Find(FindArguments arguments)
         {
-            _match = match;
+            _arguments = arguments;
 
             _queuedDir.Enqueue(new QueuedDir
             {
-                Paths = rootDirectories.ToArray()
+                Paths = new[] { arguments.Root }
             });
 
             _availableWorkEvent.Set();
@@ -69,7 +69,7 @@ namespace find2
 
             search.Initialize();
 
-            var match = _match;
+            var match = _arguments.Match;
             var emptyStrings = new[] { "" };
             var dirsToCheck = new Stack<QueuedDir>();
             var subdirs = new List<string>();
@@ -125,10 +125,10 @@ namespace find2
                             }
                             else
                             {
-                                if (entry.Name == match)
+                                if (match == null || match(entry))
                                 {
                                     var fullPath = Path.Combine(path, entry.Name);
-                                    Match?.Invoke(fullPath);
+                                    Match?.Invoke(entry, fullPath);
                                 }
                             }
 

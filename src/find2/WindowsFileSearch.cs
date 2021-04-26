@@ -18,7 +18,7 @@ namespace find2
             _buffer = new WindowsFileSearchBuffer();
         }
 
-        public override IEnumerator<IFileEntry> GetContents(string directory)
+        public override IEnumerator<WindowsFileEntry> GetContents(string directory)
         {
             return new WindowsFileSearchEnumerator(directory, _buffer);
         }
@@ -70,7 +70,7 @@ namespace find2
         }
     }
 
-    internal unsafe struct WindowsFileSearchEnumerator : IEnumerator<IFileEntry>
+    internal unsafe struct WindowsFileSearchEnumerator : IEnumerator<WindowsFileEntry>
     {
         private IntPtr _handle;
         private readonly WindowsFileSearchBuffer _buffer;
@@ -143,7 +143,7 @@ namespace find2
         // TODO
         public void Reset() { }
 
-        public IFileEntry Current
+        public WindowsFileEntry Current
         {
             get
             {
