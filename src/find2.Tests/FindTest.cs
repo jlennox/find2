@@ -15,16 +15,20 @@ namespace find2.Tests
         public FindTestPathType FileType { get; set; }
         public string Path { get; set; }
         public bool Expected { get; set; }
+        public long Size { get; set; }
 
-        public static FindTestPath File(params string[] paths)
+        public static FindTestPath File(long size, params string[] paths)
         {
-            return new() { FileType = FindTestPathType.File, Path = System.IO.Path.Combine(paths) };
+            return new() { Size = size, FileType = FindTestPathType.File, Path = System.IO.Path.Combine(paths) };
         }
 
-        public static FindTestPath ExpectedFile(params string[] paths)
+        public static FindTestPath ExpectedFile(long size, params string[] paths)
         {
-            return new() { FileType = FindTestPathType.File, Path = System.IO.Path.Combine(paths), Expected = true };
+            return new() { Size = size, FileType = FindTestPathType.File, Path = System.IO.Path.Combine(paths), Expected = true };
         }
+
+        public static FindTestPath File(params string[] paths) => File(0, paths);
+        public static FindTestPath ExpectedFile(params string[] paths) => ExpectedFile(0, paths);
 
         public static FindTestPath Dir(params string[] paths)
         {
@@ -47,7 +51,7 @@ namespace find2.Tests
                 case FindTestPathType.File:
                     var dir = System.IO.Path.GetDirectoryName(name);
                     Directory.CreateDirectory(dir);
-                    System.IO.File.WriteAllBytes(name, Array.Empty<byte>());
+                    System.IO.File.WriteAllBytes(name, new byte[Size]);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(FileType), FileType, "Unknown FileType.");

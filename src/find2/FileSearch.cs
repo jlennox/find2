@@ -15,11 +15,15 @@ namespace find2
     {
         public bool IsDirectory { get; init; }
         public string Name { get; init; }
+        public DateTime LastAccessed { get; init; }
+        public long FileSize { get; init; }
 
         public WindowsFileEntry(FILE_DIRECTORY_INFORMATION* entry)
         {
             IsDirectory = (entry->FileAttributes & FileAttributes.Directory) != 0;
             Name = new string(entry->FileName);
+            LastAccessed = entry->LastAccessTime.ToDateTime();
+            FileSize = entry->EndOfFile;
         }
     }
 

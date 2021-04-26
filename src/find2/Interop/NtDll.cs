@@ -12,14 +12,13 @@ namespace find2.Interop
 
     internal struct LongFileTime
     {
-#pragma warning disable CS0649
         /// <summary>
         /// 100-nanosecond intervals (ticks) since January 1, 1601 (UTC).
         /// </summary>
         internal long TicksSince1601;
-#pragma warning restore CS0649
 
         internal DateTimeOffset ToDateTimeOffset() => new(DateTime.FromFileTimeUtc(TicksSince1601));
+        internal DateTime ToDateTime() => DateTime.FromFileTimeUtc(TicksSince1601);
     }
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]

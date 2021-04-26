@@ -303,6 +303,9 @@ namespace find2
                         }
 
                         break;
+                    case "-size":
+                        AddExpression(MatchSize(new FindFileSize(GetArgument(arg))));
+                        break;
                     default:
                         throw new ArgumentOutOfRangeException(nameof(arg), arg, $"Unknown argument \"{arg}\".");
                 }
@@ -383,6 +386,38 @@ namespace find2
             return shouldBe
                 ? Expression.IsTrue(Expression.MakeMemberAccess(_parameter, _isDirectoryField))
                 : Expression.IsFalse(Expression.MakeMemberAccess(_parameter, _isDirectoryField));
+        }
+
+        internal static Expression MatchSize(FindFileSize size)
+        {
+            // TODO: The `IsDirectory` checks here are incorrect. Need to figure out why size sometimes returns
+            // directory results.
+            var sizeField = GetProperty<WindowsFileEntry>("FileSize");
+            var sizeFieldAccess = Expression.MakeMemberAccess(_parameter, sizeField);
+            var sizeConstant = Expression.Constant(size.Size);
+
+            Func<Expression, Expression, Expression> equalityCheck = size.Type switch {
+                FileSizeComparisonType.Less => Expression.LessThan,
+                FileSizeComparisonType.Greater => Expression.GreaterThan,
+                FileSizeComparisonType.Equals => Expression.Equal,
+                _ => throw new ArgumentOutOfRangeException()
+            };
+
+            if (size.Unit == 1)
+            {
+                return Expression.And(equalityCheck(sizeFieldAccess, sizeConstant), IsDirectory(false));
+            }
+
+            // GNU `find` "rounds up." that is, if they're searching for "1 megabyte" and the file is "1 byte," it's
+            // rounded up to be 1 megabytes.
+            var rounded = Expression.Condition(
+                Expression.Equal(sizeFieldAccess, Expression.Constant(0L)),
+                Expression.Constant(0L),
+                Expression.Add(
+                    Expression.Modulo(Expression.Constant(size.Unit), sizeFieldAccess),
+                    sizeFieldAccess));
+
+            return Expression.And(equalityCheck(rounded, sizeConstant), IsDirectory(false));
         }
 
         internal static MethodCallExpression NameRegex(string match, bool caseInsensitive)

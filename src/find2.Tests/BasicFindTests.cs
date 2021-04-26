@@ -9,14 +9,15 @@ namespace find2.Tests
 {
     public class Tests
     {
-        private static string GetGnuFindPath()
+        private static string? GetGnuFindPath()
         {
             var gnuFindPath = Environment.GetEnvironmentVariable("gnu_find_path");
             if (gnuFindPath != null) return gnuFindPath;
 
             var pathString = Environment.GetEnvironmentVariable("path");
+            if (pathString == null) return null;
 
-            return pathString?.Split(';')
+            return pathString.Split(';')
                 // We want to skip over the find.exe in system32, because Window's
                 // built in find is a different command. We're searching for one
                 // installed by cygwin or the like.
@@ -139,6 +140,60 @@ namespace find2.Tests
                 FindTestPath.ExpectedFile("sub dir1", "also filename"),
                 FindTestPath.ExpectedFile("sub dir2", foundItem),
                 FindTestPath.ExpectedFile(foundItem)
+            );
+        }
+
+        [Test]
+        public void Size()
+        {
+            RunTest("-size 5c -type f",
+                FindTestPath.Dir(""),
+                FindTestPath.Dir("sub dir1"),
+                FindTestPath.Dir("sub dir2"),
+                FindTestPath.ExpectedFile(5, "sub dir1", "another file"),
+                FindTestPath.ExpectedFile(5, "sub dir1", "also filename"),
+                FindTestPath.File(6, "sub dir2", "another file2"),
+                FindTestPath.File(4, "another file3"),
+                FindTestPath.ExpectedFile(5, "another file4")
+            );
+
+            // `-size -1048576c` and `-size -1M` behave very different from each other due to how rounding works.
+            // `-1M` will only match files that are 0 bytes, because all others are rounded up to `1M`, while the
+            // `c` suffix has no rounding.
+            RunTest($"-size -{1024 * 1024}c -type f",
+                FindTestPath.Dir(""),
+                FindTestPath.Dir("sub dir1"),
+                FindTestPath.Dir("sub dir2"),
+                FindTestPath.ExpectedFile(1, "sub dir1", "1 byte file"),
+                FindTestPath.ExpectedFile(2, "sub dir1", "2 byte file"),
+                FindTestPath.File(1024 * 1024 + 1, "sub dir1", "1mb and 1"),
+                FindTestPath.File(1024 * 1024, "sub dir2", "exactly 1mb"),
+                FindTestPath.ExpectedFile(1024 * 1024 - 1, "sub dir2", "1mb minus 1"),
+                FindTestPath.File(1024 * 1024 + 2, "1mb and 2 in root dir")
+            );
+
+            RunTest("-size -1M -type f",
+                FindTestPath.Dir(""),
+                FindTestPath.Dir("sub dir1"),
+                FindTestPath.Dir("sub dir2"),
+                FindTestPath.ExpectedFile(0, "sub dir1", "1 byte file"),
+                FindTestPath.ExpectedFile(0, "sub dir1", "2 byte file"),
+                FindTestPath.File(1024 * 1024 + 1, "sub dir1", "1mb and 1"),
+                FindTestPath.File(1024 * 1024, "sub dir2", "exactly 1mb"),
+                FindTestPath.File(1024 * 1024 - 1, "sub dir2", "1mb minus 1"),
+                FindTestPath.File(1024 * 1024 + 2, "1mb and 2 in root dir")
+            );
+
+            RunTest("-size +1M -type f",
+                FindTestPath.Dir(""),
+                FindTestPath.Dir("sub dir1"),
+                FindTestPath.Dir("sub dir2"),
+                FindTestPath.File(0, "sub dir1", "1 byte file"),
+                FindTestPath.File(0, "sub dir1", "2 byte file"),
+                FindTestPath.ExpectedFile(1024 * 1024 + 1, "sub dir1", "1mb and 1"),
+                FindTestPath.File(1024 * 1024, "sub dir2", "exactly 1mb"),
+                FindTestPath.File(1024 * 1024 - 1, "sub dir2", "1mb minus 1"),
+                FindTestPath.ExpectedFile(1024 * 1024 + 2, "1mb and 2 in root dir")
             );
         }
     }
