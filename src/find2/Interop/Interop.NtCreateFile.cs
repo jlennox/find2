@@ -5,7 +5,7 @@ using System;
 using System.IO;
 using System.Runtime.InteropServices;
 
-namespace find2
+namespace find2.Interop
 {
     internal enum BOOLEAN : byte
     {
@@ -260,7 +260,7 @@ namespace find2
         /// <summary>
         /// File creation disposition when calling directly to NT APIs.
         /// </summary>
-        public enum CreateDisposition : uint
+        internal enum CreateDisposition : uint
         {
             /// <summary>
             /// Default. Replace or create. Deletes existing file instead of overwriting.
@@ -311,7 +311,7 @@ namespace find2
         /// Options for creating/opening files with NtCreateFile.
         /// </summary>
         [Flags]
-        public enum CreateOptions : uint
+        internal enum CreateOptions : uint
         {
             /// <summary>
             /// File being created or opened must be a directory file. Disposition must be FILE_CREATE, FILE_OPEN,
@@ -505,7 +505,7 @@ namespace find2
         /// https://msdn.microsoft.com/en-us/library/windows/desktop/aa364399.aspx
         /// </remarks>
         [Flags]
-        public enum DesiredAccess : uint
+        internal enum DesiredAccess : uint
         {
             // File Access Rights Constants
             // https://msdn.microsoft.com/en-us/library/windows/desktop/gg258116.aspx
@@ -724,7 +724,7 @@ namespace find2
     }
 
     [Flags]
-    public enum ObjectAttributes : uint
+    internal enum ObjectAttributes : uint
     {
         // https://msdn.microsoft.com/en-us/library/windows/hardware/ff564586.aspx
         // https://msdn.microsoft.com/en-us/library/windows/hardware/ff547804.aspx

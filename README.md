@@ -1,14 +1,26 @@
-A prototype of a high speed cross platform GNU `find` replacement.
+A prototype of a high speed cross platform GNU `find` replacement written in C#.
 
-Goals:
+Goals
 ----
-* Efficent multi-threading.
-* Dynamically compiles the find expression for increased execution speed.
-* Cross platform and usage of latest available APIs.
-* Fall back with native dotnet core API incase the platform does not have a custom written driver.
+* Considerably faster than GNU `find`.
+    * Efficent multi-threading.
+    * Dynamically compiles the match expression for increased execution speed and optimizations where available.
+    * Cross platform and usage of latest available APIs.
+* Cross platform (Windows, Linux, macOS)
+    * Fall back with native dotnet core API incase the platform does not have custom support.
 * Argument compatible with GNU `find`.
 
-Findings/ramblings:
+Todo
+----
+
+*For v1*
+* Complete more support for the arguments.
+* More testing/benchmarking of hypotheticals.
+
+*Future*
+* Add a driver to optimize Window's searching.
+
+Findings/ramblings
 ----
 The Windows API is not as efficent as it could be. The sequence of events is at minimum:
 * System call to open directory, `CreateFileW`

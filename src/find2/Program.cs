@@ -10,10 +10,8 @@ namespace find2
         private static void Main(string[] args)
         {
             var arguments = ExpressionMatch.Build(args);
-            var find = new Find(arguments);
-
+            using var find = new Find(arguments);
             find.Match += (_, fullPath) => Console.WriteLine(fullPath);
-
             find.Run();
         }
     }

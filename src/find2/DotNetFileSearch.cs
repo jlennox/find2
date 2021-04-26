@@ -15,12 +15,19 @@ namespace find2
         {
             foreach (var entry in Directory.GetFiles(directory))
             {
-                yield return new WindowsFileEntry(false, entry);
+                yield return new WindowsFileEntry {
+                    IsDirectory = false,
+                    Name = entry
+                };
             }
 
             foreach (var entry in Directory.GetDirectories(directory))
             {
-                yield return new WindowsFileEntry(true, entry);
+                yield return new WindowsFileEntry
+                {
+                    IsDirectory = true,
+                    Name = entry
+                };
             }
         }
 

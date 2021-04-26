@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
+using find2.Interop;
 
 namespace find2
 {
@@ -9,15 +11,15 @@ namespace find2
         string Name { get; }
     }
 
-    internal struct WindowsFileEntry : IFileEntry
+    internal readonly unsafe struct WindowsFileEntry : IFileEntry
     {
-        public bool IsDirectory { get; }
-        public string Name { get; }
+        public bool IsDirectory { get; init; }
+        public string Name { get; init; }
 
-        public WindowsFileEntry(bool isDirectory, string name)
+        public WindowsFileEntry(FILE_DIRECTORY_INFORMATION* entry)
         {
-            IsDirectory = isDirectory;
-            Name = name;
+            IsDirectory = (entry->FileAttributes & FileAttributes.Directory) != 0;
+            Name = new string(entry->FileName);
         }
     }
 

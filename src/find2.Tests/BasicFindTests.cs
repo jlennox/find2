@@ -36,7 +36,12 @@ namespace find2.Tests
             var found = new List<string>();
 
             var find = new Find(ExpressionMatch.Build($"{test.Root} {args}".Split(' ')));
-            find.Match += (_, fullPath) => found.Add(fullPath);
+            find.Match += (_, fullPath) => {
+                lock (found)
+                {
+                    found.Add(fullPath);
+                }
+            };
             find.Run();
 
             CollectionAssert.AreEquivalent(test.Expected, found);

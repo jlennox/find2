@@ -2,7 +2,7 @@
 using System.IO;
 using System.Runtime.InteropServices;
 
-namespace find2
+namespace find2.Interop
 {
     internal static class Libraries
     {
@@ -10,7 +10,7 @@ namespace find2
         internal const string NtDll = "ntdll.dll";
     }
 
-    public struct LongFileTime
+    internal struct LongFileTime
     {
 #pragma warning disable CS0649
         /// <summary>
@@ -22,9 +22,8 @@ namespace find2
         internal DateTimeOffset ToDateTimeOffset() => new(DateTime.FromFileTimeUtc(TicksSince1601));
     }
 
-
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-    public unsafe struct FILE_DIRECTORY_INFORMATION
+    internal unsafe struct FILE_DIRECTORY_INFORMATION
     {
         /// <summary>
         /// Offset in bytes of the next entry, if any.
@@ -139,7 +138,7 @@ namespace find2
             BOOLEAN RestartScan);
     }
 
-    internal partial class StatusOptions
+    internal class StatusOptions
     {
         internal const int STATUS_ACTIVE = 0x00000001;
         internal const int STATUS_INACTIVE = 0x00000002;
@@ -160,7 +159,7 @@ namespace find2
 
     // https://msdn.microsoft.com/en-us/library/windows/hardware/ff550671.aspx
     [StructLayout(LayoutKind.Sequential)]
-    public struct IO_STATUS_BLOCK
+    internal struct IO_STATUS_BLOCK
     {
         /// <summary>
         /// Status
@@ -193,7 +192,7 @@ namespace find2
         }
     }
 
-    public enum FILE_INFORMATION_CLASS : uint
+    internal enum FILE_INFORMATION_CLASS : uint
     {
         FileDirectoryInformation = 1,
         FileFullDirectoryInformation = 2,

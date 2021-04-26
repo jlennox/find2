@@ -7,8 +7,7 @@ namespace find2.Tests
     {
         private static WindowsFileEntry File(string name, bool toUpper = false)
         {
-            if (toUpper) name = name?.ToUpper();
-            return new WindowsFileEntry(false, name);
+            return new() { Name = toUpper ? name.ToUpper() : name };
         }
 
         private static void Test(string param)

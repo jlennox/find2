@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
+using find2.Interop;
 
 namespace find2
 {
@@ -15,6 +15,7 @@ namespace find2
 
         public override void Initialize()
         {
+            // TODO: Why not initialize this in the field member?
             _buffer = new WindowsFileSearchBuffer();
         }
 
@@ -149,9 +150,7 @@ namespace find2
             {
                 if (_current == null) return default;
 
-                return new WindowsFileEntry(
-                    (_current->FileAttributes & FileAttributes.Directory) != 0,
-                    new string(_current->FileName));
+                return new WindowsFileEntry(_current);
             }
         }
 

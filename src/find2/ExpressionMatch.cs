@@ -37,6 +37,8 @@ namespace find2
     {
         public DebugOptions DebugOptions = DebugOptions.None;
         public int OptimizationLevel;
+        public int? ThreadCount;
+        public TimeSpan? Timeout;
         public string Root = ".";
         public FollowSymbolicLinkBehavior FollowSymbolicLinkBehavior = FollowSymbolicLinkBehavior.Never;
         public DirectoryEngine DirectoryEngine;
@@ -82,12 +84,35 @@ namespace find2
 
             string GetArgument(string arg)
             {
-                if (i == arguments.Length - 1)
+                if (i == arguments!.Length - 1)
                 {
-                    throw new ArgumentNullException(nameof(arg), $"Argument \"{arg}\" requires a value.");
+                    throw new ArgumentNullException(arg, $"Argument \"{arg}\" requires a value.");
                 }
 
                 return arguments[++i];
+            }
+
+            int GetArgumentInt(string arg)
+            {
+                var value = GetArgument(arg);
+
+                if (!int.TryParse(value, out var intValue))
+                {
+                    throw new ArgumentOutOfRangeException(arg, value, "Expected integral value.");
+                }
+
+                return intValue;
+            }
+
+            int GetPositiveInt(string arg)
+            {
+                var value = GetArgumentInt(arg);
+                if (value <= 0)
+                {
+                    throw new ArgumentOutOfRangeException(arg, value, "Expected positive, non-zero, integral value.");
+                }
+
+                return value;
             }
 
             if (arguments == null || arguments.Length == 0)
@@ -131,6 +156,12 @@ namespace find2
                         }
 
                         findArguments.DirectoryEngine = engine;
+                        break;
+                    case "--threads":
+                        findArguments.ThreadCount = GetPositiveInt(arg);
+                        break;
+                    case "--timeout":
+                        findArguments.Timeout = TimeSpan.FromMilliseconds(GetPositiveInt(arg));
                         break;
                     case "-0level": findArguments.OptimizationLevel = 0; break;
                     case "-1level": findArguments.OptimizationLevel = 1; break;
@@ -279,30 +310,21 @@ namespace find2
                 return NameRegex(blobExp, caseInsensitive);
             }
 
-            // "*foobar*"
-            if (startBlob && endBlob)
+            switch (startBlob, endBlob)
             {
-                matchType = nameof(NameContains);
-                return NameContains(match[1..^1], caseInsensitive);
+                case (true, true): // "*foobar*"
+                    matchType = nameof(NameContains);
+                    return NameContains(match[1..^1], caseInsensitive);
+                case (true, false): // "*foo"
+                    matchType = nameof(NameEndsWith);
+                    return NameEndsWith(match[1..], caseInsensitive);
+                case (false, true): // "foo*"
+                    matchType = nameof(NameStartsWith);
+                    return NameStartsWith(match[..^1], caseInsensitive);
+                case (false, false): // "foo"
+                    matchType = nameof(NameEquals);
+                    return NameEquals(match, caseInsensitive);
             }
-
-            // "*foo"
-            if (startBlob)
-            {
-                matchType = nameof(NameEndsWith);
-                return NameEndsWith(match[1..], caseInsensitive);
-            }
-
-            // "foo*"
-            if (endBlob)
-            {
-                matchType = nameof(NameStartsWith);
-                return NameStartsWith(match[..^1], caseInsensitive);
-            }
-
-            // "foo"
-            matchType = nameof(NameEquals);
-            return NameEquals(match, caseInsensitive);
         }
 
         internal static MethodCallExpression NameStartsWith(string match, bool caseInsensitive)
