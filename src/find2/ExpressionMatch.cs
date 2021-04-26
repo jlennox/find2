@@ -51,9 +51,8 @@ namespace find2
     internal static class ExpressionMatch
     {
         private static readonly ParameterExpression _parameter = Expression.Parameter(typeof(WindowsFileEntry));
-        private static readonly PropertyInfo _namefield = typeof(WindowsFileEntry)
-            .GetProperty("Name", BindingFlags.Instance | BindingFlags.Public)
-            ?? throw new ArgumentException($"Unable to locate \"Name\" property on {nameof(WindowsFileEntry)}.");
+        private static readonly PropertyInfo _nameField = GetProperty<WindowsFileEntry>("Name");
+        private static readonly PropertyInfo _isDirectoryField = GetProperty<WindowsFileEntry>("IsDirectory");
 
         private static readonly IReadOnlyDictionary<string, DebugOptions> _debugOptionLookup = new Dictionary<string, DebugOptions>
         {
@@ -74,8 +73,15 @@ namespace find2
         };
 
         private static readonly IReadOnlySet<string> _matchOptions = new HashSet<string> {
-            "(", ")", "-name", "-iname", "-regex", "-iregex", "-true", "-false", "-not", "!", "-or", "-o", "-and", "-a"
+            "(", ")", "-name", "-iname", "-regex", "-iregex", "-true", "-false", "-not", "!", "-or", "-o", "-and", "-a",
+            "-type"
         };
+
+        private static PropertyInfo GetProperty<T>(string name)
+        {
+            return typeof(T).GetProperty(name, BindingFlags.Instance | BindingFlags.Public)
+                ?? throw new ArgumentException($"Unable to locate \"{name}\" property on {nameof(T)}.");
+        }
 
         public static FindArguments Build(params string[]? arguments)
         {
@@ -272,6 +278,31 @@ namespace find2
                     case "-a":
                         binaryExpression = Expression.AndAlso;
                         break;
+                    case "-type":
+                        var typeArgs = GetArgument(arg);
+                        foreach (var typeArg in typeArgs.Split(','))
+                        {
+                            switch (typeArg)
+                            {
+                                case "d":
+                                    AddExpression(IsDirectory(true));
+                                    break;
+                                case "f":
+                                    AddExpression(IsDirectory(false));
+                                    break;
+                                case "b": // block (buffered) special
+                                case "c": // character (unbuffered) special
+                                case "p": // named pipe (FIFO)
+                                case "l": // symbolic link; this is never true if the -L option or the -follow option is in effect
+                                case "s": // socket
+                                case "D": // door (Solaris)
+                                    throw new ArgumentOutOfRangeException(arg, typeArg, "A valid argument type but not (yet?) supported.");
+                                default:
+                                    throw new ArgumentOutOfRangeException(arg, typeArg, "Invalid type argument.");
+                            }
+                        }
+
+                        break;
                     default:
                         throw new ArgumentOutOfRangeException(nameof(arg), arg, $"Unknown argument \"{arg}\".");
                 }
@@ -347,6 +378,13 @@ namespace find2
             return StringComparisonMethod("Equals", match, caseInsensitive);
         }
 
+        internal static Expression IsDirectory(bool shouldBe)
+        {
+            return shouldBe
+                ? Expression.IsTrue(Expression.MakeMemberAccess(_parameter, _isDirectoryField))
+                : Expression.IsFalse(Expression.MakeMemberAccess(_parameter, _isDirectoryField));
+        }
+
         internal static MethodCallExpression NameRegex(string match, bool caseInsensitive)
         {
             var regexOptions = RegexOptions.Compiled | (caseInsensitive ? RegexOptions.IgnoreCase : RegexOptions.None);
@@ -364,7 +402,7 @@ namespace find2
             return Expression.Call(
                 Expression.Constant(exp),
                 isMatchMethod,
-                Expression.MakeMemberAccess(_parameter, _namefield));
+                Expression.MakeMemberAccess(_parameter, _nameField));
         }
 
         private static MethodCallExpression StringComparisonMethod(string method, string match, bool caseInsensitive)
@@ -383,7 +421,7 @@ namespace find2
                 : StringComparison.CurrentCulture;
 
             return Expression.Call(
-                Expression.MakeMemberAccess(_parameter, _namefield),
+                Expression.MakeMemberAccess(_parameter, _nameField),
                 methodInfo,
                 Expression.Constant(match), Expression.Constant(comparison));
         }

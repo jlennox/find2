@@ -115,5 +115,31 @@ namespace find2.Tests
                 FindTestPath.ExpectedFile(foundItem)
             );
         }
+
+        [Test]
+        public void TypeCanDetectDirectoriesVsFiles()
+        {
+            const string foundItem = "Im_found";
+
+            RunTest("-type d",
+                FindTestPath.ExpectedDir(""),
+                FindTestPath.ExpectedDir("sub dir1"),
+                FindTestPath.ExpectedDir("sub dir2"),
+                FindTestPath.File("sub dir1", foundItem),
+                FindTestPath.File("sub dir1", "also filename"),
+                FindTestPath.File("sub dir2", foundItem),
+                FindTestPath.File(foundItem)
+            );
+
+            RunTest("-type f",
+                FindTestPath.Dir(""),
+                FindTestPath.Dir("sub dir1"),
+                FindTestPath.Dir("sub dir2"),
+                FindTestPath.ExpectedFile("sub dir1", foundItem),
+                FindTestPath.ExpectedFile("sub dir1", "also filename"),
+                FindTestPath.ExpectedFile("sub dir2", foundItem),
+                FindTestPath.ExpectedFile(foundItem)
+            );
+        }
     }
 }
