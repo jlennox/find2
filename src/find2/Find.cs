@@ -48,6 +48,14 @@ namespace find2
 
         public void Run()
         {
+            var match = _arguments.Match;
+            var rootEntry = new WindowsFileEntry(true, _arguments.Root);
+
+            if (match == null || match(rootEntry))
+            {
+                Match?.Invoke(rootEntry, _arguments.Root);
+            }
+
             foreach (var thread in _threads)
             {
                 thread.Start();
@@ -123,13 +131,11 @@ namespace find2
                                     subdirs.Add(Path.Combine(path, entry.Name));
                                 }
                             }
-                            else
+
+                            if (match == null || match(entry))
                             {
-                                if (match == null || match(entry))
-                                {
-                                    var fullPath = Path.Combine(path, entry.Name);
-                                    Match?.Invoke(entry, fullPath);
-                                }
+                                var fullPath = Path.Combine(path, entry.Name);
+                                Match?.Invoke(entry, fullPath);
                             }
 
                             if (subdirs.Count > 0)

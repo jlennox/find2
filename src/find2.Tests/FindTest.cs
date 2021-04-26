@@ -31,6 +31,11 @@ namespace find2.Tests
             return new() { FileType = FindTestPathType.Directory, Path = System.IO.Path.Combine(paths) };
         }
 
+        public static FindTestPath ExpectedDir(params string[] paths)
+        {
+            return new() { FileType = FindTestPathType.Directory, Path = System.IO.Path.Combine(paths), Expected = true };
+        }
+
         internal void Create(string root)
         {
             var name = System.IO.Path.Combine(root, Path);

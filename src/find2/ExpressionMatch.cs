@@ -98,6 +98,8 @@ namespace find2
             for (var completed = false; i < arguments.Length && !completed; ++i)
             {
                 var arg = arguments[i];
+                if (string.IsNullOrWhiteSpace(arg)) continue;
+
                 switch (arg)
                 {
                     case "-P":
@@ -187,6 +189,7 @@ namespace find2
             for (; i < arguments.Length; ++i)
             {
                 var arg = arguments[i];
+                if (string.IsNullOrWhiteSpace(arg)) continue;
 
                 switch (arg)
                 {
