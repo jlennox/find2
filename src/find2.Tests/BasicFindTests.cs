@@ -271,5 +271,11 @@ namespace find2.Tests
                 FindTestPath.ExpectedFile("sub dir2", "another file4")
             );
         }
+
+        [Test]
+        public void Mmin()
+        {
+            // TODO
+        }
     }
 }

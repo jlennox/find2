@@ -15,25 +15,27 @@ namespace find2
     {
         public bool IsDirectory { get; init; }
         public string Name { get; init; }
-        public DateTime LastAccessed { get; init; }
-        public long FileSize { get; init; }
+        public DateTime LastAccessTime { get; init; }
+        public DateTime LastWriteTime { get; init; }
+        public long Size { get; init; }
 
         public WindowsFileEntry(FILE_DIRECTORY_INFORMATION* entry)
         {
             Name = new string(entry->FileName);
             IsDirectory = (entry->FileAttributes & FileAttributes.Directory) != 0;
-            LastAccessed = entry->LastAccessTime.ToDateTime();
-            FileSize = entry->EndOfFile;
+            LastAccessTime = entry->LastAccessTime.ToDateTime();
+            LastWriteTime = entry->LastWriteTime.ToDateTime();
+            Size = entry->EndOfFile;
         }
 
         public WindowsFileEntry(string path)
         {
-            Console.WriteLine("Checking for:" + path);
             Name = Path.GetFileName(path);
             var fileinfo = new FileInfo(path);
             IsDirectory = (fileinfo.Attributes & FileAttributes.Directory) != 0;
-            LastAccessed = fileinfo.LastAccessTimeUtc;
-            FileSize = IsDirectory ? 0 : fileinfo.Length; // make this lazy!
+            LastAccessTime = fileinfo.LastAccessTimeUtc;
+            LastWriteTime = fileinfo.LastWriteTimeUtc;
+            Size = IsDirectory ? 0 : fileinfo.Length; // make this lazy!
         }
     }
 

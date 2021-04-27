@@ -4,6 +4,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using BinaryCheckExpression = System.Func<System.Linq.Expressions.Expression, System.Linq.Expressions.Expression, System.Linq.Expressions.BinaryExpression>;
 using MatchExpression = System.Func<find2.WindowsFileEntry, bool>;
 
 #pragma warning disable CA2208 // Instantiate argument exceptions correctly
@@ -69,8 +70,8 @@ namespace find2
     internal static class ExpressionMatch
     {
         private static readonly ParameterExpression _parameter = Expression.Parameter(typeof(WindowsFileEntry));
-        private static readonly PropertyInfo _nameField = GetProperty<WindowsFileEntry>("Name");
-        private static readonly PropertyInfo _isDirectoryField = GetProperty<WindowsFileEntry>("IsDirectory");
+        private static readonly MemberExpression _nameField = GetPropertyAccess<WindowsFileEntry>("Name");
+        private static readonly MemberExpression _isDirectoryField = GetPropertyAccess<WindowsFileEntry>("IsDirectory");
 
         private static readonly IReadOnlyDictionary<string, DebugOptions> _debugOptionLookup = new Dictionary<string, DebugOptions>
         {
@@ -92,13 +93,18 @@ namespace find2
 
         private static readonly IReadOnlySet<string> _matchOptions = new HashSet<string> {
             "(", ")", "-name", "-iname", "-regex", "-iregex", "-true", "-false", "-not", "!", "-or", "-o", "-and", "-a",
-            "-type", "-size", "-maxdepth", "-mindepth"
+            "-type", "-size", "-maxdepth", "-mindepth", "-mmin"
         };
 
         private static PropertyInfo GetProperty<T>(string name)
         {
             return typeof(T).GetProperty(name, BindingFlags.Instance | BindingFlags.Public)
                 ?? throw new ArgumentException($"Unable to locate \"{name}\" property on {nameof(T)}.");
+        }
+
+        private static MemberExpression GetPropertyAccess<T>(string name)
+        {
+            return Expression.MakeMemberAccess(_parameter, GetProperty<T>(name));
         }
 
         public static FindArguments Build(params string[]? arguments)
@@ -119,35 +125,22 @@ namespace find2
             int GetArgumentInt(string arg)
             {
                 var value = GetArgument(arg);
-
-                if (!int.TryParse(value, out var intValue))
-                {
-                    throw new ArgumentOutOfRangeException(arg, value, "Expected integral value.");
-                }
-
-                return intValue;
+                if (int.TryParse(value, out var intValue)) return intValue;
+                throw new ArgumentOutOfRangeException(arg, value, "Expected integral value.");
             }
 
             int GetPositiveInt(string arg)
             {
                 var value = GetArgumentInt(arg);
-                if (value < 0)
-                {
-                    throw new ArgumentOutOfRangeException(arg, value, "Expected positive integral value.");
-                }
-
-                return value;
+                if (value >= 0) return value;
+                throw new ArgumentOutOfRangeException(arg, value, "Expected positive integral value.");
             }
 
             int GetPositiveNonZeroInt(string arg)
             {
                 var value = GetPositiveInt(arg);
-                if (value == 0)
-                {
-                    throw new ArgumentOutOfRangeException(arg, value, "Expected positive, non-zero, integral value.");
-                }
-
-                return value;
+                if (value > 0) return value;
+                throw new ArgumentOutOfRangeException(arg, value, "Expected positive, non-zero, integral value.");
             }
 
             if (arguments == null || arguments.Length == 0)
@@ -227,7 +220,7 @@ namespace find2
             }
 
             Func<Expression, Expression>? wrappingExpression = null;
-            Func<Expression, Expression, BinaryExpression>? binaryExpression = null;
+            BinaryCheckExpression? binaryExpression = null;
             Expression? expression = null;
             // TODO: Need to stack out wrappingExpression too.
             var expressionTrees = new Stack<Expression?>();
@@ -343,6 +336,11 @@ namespace find2
                     case "-mindepth":
                         findArguments.MinDepth = GetPositiveInt(arg);
                         break;
+                    case "-mmin":
+                        AddExpression(LastWriteTime(
+                            TimeSpan.FromMinutes(GetArgumentInt(arg)),
+                            Expression.GreaterThanOrEqual));
+                        break;
                     default:
                         throw new ArgumentOutOfRangeException(nameof(arg), arg, $"Unknown argument \"{arg}\".");
                 }
@@ -420,41 +418,45 @@ namespace find2
 
         internal static Expression IsDirectory(bool shouldBe)
         {
-            return shouldBe
-                ? Expression.IsTrue(Expression.MakeMemberAccess(_parameter, _isDirectoryField))
-                : Expression.IsFalse(Expression.MakeMemberAccess(_parameter, _isDirectoryField));
+            return shouldBe ? Expression.IsTrue(_isDirectoryField) : Expression.IsFalse(_isDirectoryField);
         }
 
         internal static Expression MatchSize(FindFileSize size)
         {
-            // TODO: The `IsDirectory` checks here are incorrect. Need to figure out why size sometimes returns
+            // TODO: The `IsDirectory` checks here are incorrect. Need to figure out why GNU `find` sometimes returns
             // directory results.
-            var sizeField = GetProperty<WindowsFileEntry>("FileSize");
-            var sizeFieldAccess = Expression.MakeMemberAccess(_parameter, sizeField);
+            var sizeField = GetPropertyAccess<WindowsFileEntry>("Size");
             var sizeConstant = Expression.Constant(size.Size);
 
-            Func<Expression, Expression, Expression> equalityCheck = size.Type switch {
+            BinaryCheckExpression equalityCheck = size.Type switch {
                 FileSizeComparisonType.Less => Expression.LessThan,
                 FileSizeComparisonType.Greater => Expression.GreaterThan,
                 FileSizeComparisonType.Equals => Expression.Equal,
                 _ => throw new ArgumentOutOfRangeException()
             };
 
+            // Fast path byte sized checks because they do not need the rounding math to happen.
             if (size.Unit == 1)
             {
-                return Expression.And(equalityCheck(sizeFieldAccess, sizeConstant), IsDirectory(false));
+                return Expression.And(equalityCheck(sizeField, sizeConstant), IsDirectory(false));
             }
 
             // GNU `find` "rounds up." that is, if they're searching for "1 megabyte" and the file is "1 byte," it's
             // rounded up to be 1 megabytes.
             var rounded = Expression.Condition(
-                Expression.Equal(sizeFieldAccess, Expression.Constant(0L)),
+                Expression.Equal(sizeField, Expression.Constant(0L)),
                 Expression.Constant(0L),
                 Expression.Add(
-                    Expression.Modulo(Expression.Constant(size.Unit), sizeFieldAccess),
-                    sizeFieldAccess));
+                    Expression.Modulo(Expression.Constant(size.Unit), sizeField),
+                    sizeField));
 
             return Expression.And(equalityCheck(rounded, sizeConstant), IsDirectory(false));
+        }
+
+        internal static Expression LastWriteTime(TimeSpan lastWriteTime, BinaryCheckExpression check)
+        {
+            var field = GetPropertyAccess<WindowsFileEntry>("LastWriteTime");
+            return check(field, Expression.Constant(DateTime.UtcNow + lastWriteTime));
         }
 
         internal static MethodCallExpression NameRegex(string match, bool caseInsensitive)
@@ -471,10 +473,7 @@ namespace find2
                 throw new ArgumentOutOfRangeException(nameof(isMatchMethod), "IsMatch", "Unable to locate 'IsMatch' method.");
             }
 
-            return Expression.Call(
-                Expression.Constant(exp),
-                isMatchMethod,
-                Expression.MakeMemberAccess(_parameter, _nameField));
+            return Expression.Call(Expression.Constant(exp), isMatchMethod, _nameField);
         }
 
         private static MethodCallExpression StringComparisonMethod(string method, string match, bool caseInsensitive)
@@ -493,8 +492,7 @@ namespace find2
                 : StringComparison.CurrentCulture;
 
             return Expression.Call(
-                Expression.MakeMemberAccess(_parameter, _nameField),
-                methodInfo,
+                _nameField, methodInfo,
                 Expression.Constant(match), Expression.Constant(comparison));
         }
     }
