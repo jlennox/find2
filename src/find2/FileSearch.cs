@@ -20,10 +20,20 @@ namespace find2
 
         public WindowsFileEntry(FILE_DIRECTORY_INFORMATION* entry)
         {
-            IsDirectory = (entry->FileAttributes & FileAttributes.Directory) != 0;
             Name = new string(entry->FileName);
+            IsDirectory = (entry->FileAttributes & FileAttributes.Directory) != 0;
             LastAccessed = entry->LastAccessTime.ToDateTime();
             FileSize = entry->EndOfFile;
+        }
+
+        public WindowsFileEntry(string path)
+        {
+            Console.WriteLine("Checking for:" + path);
+            Name = Path.GetFileName(path);
+            var fileinfo = new FileInfo(path);
+            IsDirectory = (fileinfo.Attributes & FileAttributes.Directory) != 0;
+            LastAccessed = fileinfo.LastAccessTimeUtc;
+            FileSize = IsDirectory ? 0 : fileinfo.Length; // make this lazy!
         }
     }
 

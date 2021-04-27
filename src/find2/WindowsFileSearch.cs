@@ -7,7 +7,7 @@ using find2.Interop;
 
 namespace find2
 {
-    internal class WindowsFileSearch : FileSearch<WindowsFileEntry>
+    internal sealed class WindowsFileSearch : FileSearch<WindowsFileEntry>
     {
         public static bool IsSupported() => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
 
@@ -30,7 +30,7 @@ namespace find2
         }
     }
 
-    internal class WindowsFileSearchBuffer : IDisposable
+    internal sealed class WindowsFileSearchBuffer : IDisposable
     {
         private static readonly int _pageSize = Environment.SystemPageSize * 2;
         private static readonly int _bufferSize = _pageSize * 100;

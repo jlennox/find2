@@ -34,18 +34,31 @@ namespace find2.Tests
             params FindTestPath[] files)
         {
             using var test = new FindTest(files);
-            var found = new List<string>();
+            var foundDefault = new List<string>();
+            var foundDotnet = new List<string>();
 
-            var find = new Find(ExpressionMatch.Build($"{test.Root} {args}".Split(' ')));
+            var combinedArgs = $"{test.Root} {args}".Trim();
+
+            var find = new Find(ExpressionMatch.Build(combinedArgs.Split(' ')));
             find.Match += (_, fullPath) => {
-                lock (found)
+                lock (foundDefault)
                 {
-                    found.Add(fullPath);
+                    foundDefault.Add(fullPath);
                 }
             };
             find.Run();
 
-            CollectionAssert.AreEquivalent(test.Expected, found);
+            var findDotnet = new Find(ExpressionMatch.Build($"--engine dotnet {combinedArgs}".Split(' ')));
+            findDotnet.Match += (_, fullPath) => {
+                lock (foundDefault)
+                {
+                    foundDotnet.Add(fullPath);
+                }
+            };
+            findDotnet.Run();
+
+            CollectionAssert.AreEquivalent(test.Expected, foundDefault);
+            CollectionAssert.AreEquivalent(test.Expected, foundDotnet);
 
             if (_gnuFindPath == null)
             {
@@ -55,7 +68,7 @@ namespace find2.Tests
             using var findProc = new Process {
                 StartInfo = new ProcessStartInfo {
                     FileName = _gnuFindPath,
-                    Arguments = $"{test.Root} {args}",
+                    Arguments = combinedArgs,
                     UseShellExecute = false,
                     RedirectStandardOutput = true,
                 }
@@ -72,9 +85,9 @@ namespace find2.Tests
                 .Split('\n');
 
             var a = string.Join('\n', findOutput.OrderBy(t => t));
-            var b = string.Join('\n', found.OrderBy(t => t));
+            var b = string.Join('\n', foundDefault.OrderBy(t => t));
 
-            CollectionAssert.AreEquivalent(findOutput, found);
+            CollectionAssert.AreEquivalent(findOutput, foundDefault);
         }
 
         [Test]

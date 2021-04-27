@@ -33,7 +33,7 @@ namespace find2
         Default, Windows, Dotnet
     }
 
-    internal class FindArguments
+    internal sealed class FindArguments
     {
         public DebugOptions DebugOptions = DebugOptions.None;
         public int OptimizationLevel;
@@ -46,6 +46,23 @@ namespace find2
         // If null, all results should match.
         public MatchExpression? Match;
         public int? MaxDepth;
+
+        public FileSearch<WindowsFileEntry> GetSearch()
+        {
+            switch (DirectoryEngine)
+            {
+                case DirectoryEngine.Default:
+                    return WindowsFileSearch.IsSupported()
+                        ? new WindowsFileSearch()
+                        : new DotNetFileSearch();
+                case DirectoryEngine.Dotnet:
+                    return new DotNetFileSearch();
+                case DirectoryEngine.Windows:
+                    return new WindowsFileSearch();
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+        }
     }
 
     internal static class ExpressionMatch
@@ -146,7 +163,7 @@ namespace find2
                         var debugOptions = GetArgument(arg).Split(',');
                         foreach (var debugOption in debugOptions)
                         {
-                            if (_debugOptionLookup.TryGetValue(debugOption, out var option))
+                            if (!_debugOptionLookup.TryGetValue(debugOption, out var option))
                             {
                                 throw new Exception($"Unsupported {arg} flag, {debugOption}");
                             }
@@ -156,7 +173,7 @@ namespace find2
                         break;
                     case "--engine":
                         var engineOption = GetArgument(arg);
-                        if (_engineLookup.TryGetValue(engineOption, out var engine))
+                        if (!_engineLookup.TryGetValue(engineOption, out var engine))
                         {
                             throw new Exception($"Unsupported {arg} flag, {engineOption}");
                         }

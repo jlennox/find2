@@ -33,6 +33,11 @@ namespace find2
         {
             _arguments = arguments;
 
+            if (arguments.ThreadCount.HasValue)
+            {
+                _threadCount = arguments.ThreadCount.Value;
+            }
+
             _queuedDir.Enqueue(new QueuedDir
             {
                 Paths = new[] { arguments.Root }
@@ -82,9 +87,7 @@ namespace find2
 
         private void SearchWorker()
         {
-            using FileSearch<WindowsFileEntry> search = WindowsFileSearch.IsSupported()
-                ? new WindowsFileSearch()
-                : new DotNetFileSearch();
+            using FileSearch<WindowsFileEntry> search = _arguments.GetSearch();
 
             search.Initialize();
 
