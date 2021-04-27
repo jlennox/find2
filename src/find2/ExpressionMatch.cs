@@ -45,6 +45,7 @@ namespace find2
 
         // If null, all results should match.
         public MatchExpression? Match;
+        public int? MinDepth;
         public int? MaxDepth;
 
         public FileSearch<WindowsFileEntry> GetSearch()
@@ -91,7 +92,7 @@ namespace find2
 
         private static readonly IReadOnlySet<string> _matchOptions = new HashSet<string> {
             "(", ")", "-name", "-iname", "-regex", "-iregex", "-true", "-false", "-not", "!", "-or", "-o", "-and", "-a",
-            "-type"
+            "-type", "-size", "-maxdepth", "-mindepth"
         };
 
         private static PropertyInfo GetProperty<T>(string name)
@@ -130,7 +131,18 @@ namespace find2
             int GetPositiveInt(string arg)
             {
                 var value = GetArgumentInt(arg);
-                if (value <= 0)
+                if (value < 0)
+                {
+                    throw new ArgumentOutOfRangeException(arg, value, "Expected positive integral value.");
+                }
+
+                return value;
+            }
+
+            int GetPositiveNonZeroInt(string arg)
+            {
+                var value = GetPositiveInt(arg);
+                if (value == 0)
                 {
                     throw new ArgumentOutOfRangeException(arg, value, "Expected positive, non-zero, integral value.");
                 }
@@ -181,10 +193,10 @@ namespace find2
                         findArguments.DirectoryEngine = engine;
                         break;
                     case "--threads":
-                        findArguments.ThreadCount = GetPositiveInt(arg);
+                        findArguments.ThreadCount = GetPositiveNonZeroInt(arg);
                         break;
                     case "--timeout":
-                        findArguments.Timeout = TimeSpan.FromMilliseconds(GetPositiveInt(arg));
+                        findArguments.Timeout = TimeSpan.FromMilliseconds(GetPositiveNonZeroInt(arg));
                         break;
                     case "-0level": findArguments.OptimizationLevel = 0; break;
                     case "-1level": findArguments.OptimizationLevel = 1; break;
@@ -322,6 +334,14 @@ namespace find2
                         break;
                     case "-size":
                         AddExpression(MatchSize(new FindFileSize(GetArgument(arg))));
+                        break;
+                    case "-maxdepth":
+                        // TODO: Technically -maxdepth and -mindepth need to come before all other parameters, and when
+                        // inside the usual flow, should exception.
+                        findArguments.MaxDepth = GetPositiveInt(arg);
+                        break;
+                    case "-mindepth":
+                        findArguments.MinDepth = GetPositiveInt(arg);
                         break;
                     default:
                         throw new ArgumentOutOfRangeException(nameof(arg), arg, $"Unknown argument \"{arg}\".");

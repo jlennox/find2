@@ -27,6 +27,7 @@ namespace find2
         {
             public string[]? Paths { get; init; }
             public string? Path { get; init; }
+            public int Depth { get; init; }
         }
 
         public Find(FindArguments arguments)
@@ -40,7 +41,8 @@ namespace find2
 
             _queuedDir.Enqueue(new QueuedDir
             {
-                Paths = new[] { arguments.Root }
+                Paths = new[] { arguments.Root },
+                Depth = 1,
             });
 
             _availableWorkEvent.Set();
@@ -57,16 +59,20 @@ namespace find2
             // This feels sloppy.
             {
                 var match = _arguments.Match;
+                var minDepth = _arguments.MinDepth;
                 var rootEntry = new WindowsFileEntry {
                     IsDirectory = true,
                     Name = _arguments.Root
                 };
 
-                if (match == null || match(rootEntry))
+                if ((match == null || match(rootEntry)) && (!minDepth.HasValue || 0 >= minDepth))
                 {
                     Match?.Invoke(rootEntry, _arguments.Root);
                 }
             }
+
+            // Special case this so the more complex code doesn't need to jump through hoops to support the oddity.
+            if (_arguments.MaxDepth == 0) return;
 
             foreach (var thread in _threads)
             {
@@ -92,6 +98,8 @@ namespace find2
             search.Initialize();
 
             var match = _arguments.Match;
+            var maxDepth = _arguments.MaxDepth;
+            var minDepth = _arguments.MinDepth;
             var emptyPathsPlaceholder = new[] { "" };
             var dirsToCheck = new Stack<QueuedDir>();
             var subdirs = new List<string>();
@@ -101,11 +109,12 @@ namespace find2
 
             // Empties the local running list of subdirectories and signals there's work available.
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            void FlushSubdirs()
+            void FlushSubdirs(int depth)
             {
                 _queuedDir.Enqueue(new QueuedDir
                 {
-                    Paths = subdirs.ToArray()
+                    Paths = subdirs.ToArray(),
+                    Depth = depth + 1
                 });
                 subdirs.Clear();
                 _availableWorkEvent.Set();
@@ -145,6 +154,9 @@ namespace find2
                 while (dirsToCheck.Count > 0)
                 {
                     var dir = dirsToCheck.Pop();
+                    var maxDepthPasses = !maxDepth.HasValue || dir.Depth < maxDepth;
+                    var minDepthPasses = !minDepth.HasValue || dir.Depth >= minDepth;
+
                     foreach (var pathx in dir.Paths ?? emptyPathsPlaceholder)
                     {
                         // This is super sloppy. Basically, sometimes we've got a single path, sometimes we've got an
@@ -161,7 +173,7 @@ namespace find2
                             var entry = results.Current;
                             var innerHasAddedSubdirs = hasAddedSubdirs;
 
-                            if (entry.IsDirectory)
+                            if (entry.IsDirectory && maxDepthPasses)
                             {
                                 // The first additional work we come across, add it to this worker's internal queue
                                 // instead of to the global queue. This prevents the need of costly thread
@@ -171,7 +183,8 @@ namespace find2
                                     hasAddedSubdirs = true;
                                     dirsToCheck.Push(new QueuedDir
                                     {
-                                        Path = Path.Combine(path, entry.Name)
+                                        Path = Path.Combine(path, entry.Name),
+                                        Depth = dir.Depth + 1
                                     });
                                 }
                                 else
@@ -180,7 +193,7 @@ namespace find2
                                 }
                             }
 
-                            if (match == null || match(entry))
+                            if ((match == null || match(entry)) && minDepthPasses)
                             {
                                 var fullPath = Path.Combine(path, entry.Name);
                                 Match?.Invoke(entry, fullPath);
@@ -194,14 +207,14 @@ namespace find2
                             //   proven improvements from this.
                             if (subdirs.Count >= 10)
                             {
-                                FlushSubdirs();
+                                FlushSubdirs(dir.Depth);
                             }
                         }
 
                         // Flush any remaining to the worker threads.
                         if (subdirs.Count > 0)
                         {
-                            FlushSubdirs();
+                            FlushSubdirs(dir.Depth);
                         }
                     }
                 }

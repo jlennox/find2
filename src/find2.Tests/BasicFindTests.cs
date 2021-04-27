@@ -209,5 +209,67 @@ namespace find2.Tests
                 FindTestPath.ExpectedFile(1024 * 1024 + 2, "1mb and 2 in root dir")
             );
         }
+
+        [Test]
+        public void MinDepth()
+        {
+            RunTest("-mindepth 0",
+                FindTestPath.ExpectedDir(""),
+                FindTestPath.ExpectedFile("root file"),
+                FindTestPath.ExpectedDir("sub dir1"),
+                FindTestPath.ExpectedDir("sub dir2"),
+                FindTestPath.ExpectedFile("sub dir1", "another file"),
+                FindTestPath.ExpectedFile("sub dir2", "another file4")
+            );
+
+            RunTest("-mindepth 1",
+                FindTestPath.Dir(""),
+                FindTestPath.ExpectedFile("root file"),
+                FindTestPath.ExpectedDir("sub dir1"),
+                FindTestPath.ExpectedDir("sub dir2"),
+                FindTestPath.ExpectedFile("sub dir1", "another file"),
+                FindTestPath.ExpectedFile("sub dir2", "another file4")
+            );
+
+            RunTest("-mindepth 2",
+                FindTestPath.Dir(""),
+                FindTestPath.File("root file"),
+                FindTestPath.Dir("sub dir1"),
+                FindTestPath.Dir("sub dir2"),
+                FindTestPath.ExpectedFile("sub dir1", "another file"),
+                FindTestPath.ExpectedFile("sub dir2", "another file4")
+            );
+        }
+
+        [Test]
+        public void MaxDepth()
+        {
+            RunTest("-maxdepth 0",
+                FindTestPath.ExpectedDir(""),
+                FindTestPath.File("root file"),
+                FindTestPath.Dir("sub dir1"),
+                FindTestPath.Dir("sub dir2"),
+                FindTestPath.File("sub dir1", "another file"),
+                FindTestPath.File("sub dir2", "another file4")
+            );
+
+            RunTest("-maxdepth 1",
+                FindTestPath.ExpectedDir(""),
+                FindTestPath.ExpectedFile("root file"),
+                FindTestPath.ExpectedDir("sub dir1"),
+                FindTestPath.ExpectedDir("sub dir2"),
+                FindTestPath.File("sub dir1", "another file"),
+                FindTestPath.File("sub dir2", "another file4")
+            );
+
+            RunTest("-maxdepth 2",
+                FindTestPath.ExpectedDir(""),
+                FindTestPath.ExpectedFile("root file"),
+                FindTestPath.ExpectedDir("sub dir1"),
+                FindTestPath.ExpectedDir("sub dir2"),
+                FindTestPath.ExpectedFile("sub dir1", "another file"),
+                FindTestPath.ExpectedFile("sub dir2", "another file4")
+            );
+        }
     }
 }
