@@ -8,7 +8,10 @@ namespace find2
     internal interface IFileEntry
     {
         public bool IsDirectory { get; }
-        string Name { get; }
+        public string Name { get; }
+        public DateTime LastAccessTime { get; }
+        public DateTime LastWriteTime { get; }
+        public long Size { get; }
     }
 
     internal readonly unsafe struct WindowsFileEntry : IFileEntry

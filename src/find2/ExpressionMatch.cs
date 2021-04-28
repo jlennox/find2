@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -93,7 +94,7 @@ namespace find2
 
         private static readonly IReadOnlySet<string> _matchOptions = new HashSet<string> {
             "(", ")", "-name", "-iname", "-regex", "-iregex", "-true", "-false", "-not", "!", "-or", "-o", "-and", "-a",
-            "-type", "-size", "-maxdepth", "-mindepth", "-mmin"
+            "-type", "-size", "-maxdepth", "-mindepth", "-mmin", "-newer", "-amin", "-anewer"
         };
 
         private static PropertyInfo GetProperty<T>(string name)
@@ -120,6 +121,15 @@ namespace find2
                 }
 
                 return arguments[++i];
+            }
+
+            string GetArgumentFile(string arg)
+            {
+                var file = GetArgument(arg);
+                // TODO: Exception
+                if (!File.Exists(file)) throw new FileNotFoundException("");
+                // TODO: If the file is a symbolic link and -H/-L are specified, follow the link.
+                return file;
             }
 
             int GetArgumentInt(string arg)
@@ -338,7 +348,22 @@ namespace find2
                         break;
                     case "-mmin":
                         AddExpression(LastWriteTime(
-                            TimeSpan.FromMinutes(GetArgumentInt(arg)),
+                            DateTime.UtcNow + TimeSpan.FromMinutes(GetArgumentInt(arg)),
+                            Expression.GreaterThanOrEqual));
+                        break;
+                    case "-newer":
+                        AddExpression(LastWriteTime(
+                            File.GetLastAccessTimeUtc(GetArgumentFile(arg)),
+                            Expression.GreaterThanOrEqual));
+                        break;
+                    case "-amin":
+                        AddExpression(LastAccessTime(
+                            DateTime.UtcNow + TimeSpan.FromMinutes(GetArgumentInt(arg)),
+                            Expression.GreaterThanOrEqual));
+                        break;
+                    case "-anewer":
+                        AddExpression(LastAccessTime(
+                            File.GetLastAccessTimeUtc(GetArgumentFile(arg)),
                             Expression.GreaterThanOrEqual));
                         break;
                     default:
@@ -453,10 +478,16 @@ namespace find2
             return Expression.And(equalityCheck(rounded, sizeConstant), IsDirectory(false));
         }
 
-        internal static Expression LastWriteTime(TimeSpan lastWriteTime, BinaryCheckExpression check)
+        internal static Expression LastWriteTime(DateTime datetime, BinaryCheckExpression check)
         {
             var field = GetPropertyAccess<WindowsFileEntry>("LastWriteTime");
-            return check(field, Expression.Constant(DateTime.UtcNow + lastWriteTime));
+            return check(field, Expression.Constant(datetime));
+        }
+
+        internal static Expression LastAccessTime(DateTime datetime, BinaryCheckExpression check)
+        {
+            var field = GetPropertyAccess<WindowsFileEntry>("LastAccessTime");
+            return check(field, Expression.Constant(datetime));
         }
 
         internal static MethodCallExpression NameRegex(string match, bool caseInsensitive)

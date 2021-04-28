@@ -60,10 +60,7 @@ namespace find2
             {
                 var match = _arguments.Match;
                 var minDepth = _arguments.MinDepth;
-                var rootEntry = new WindowsFileEntry {
-                    IsDirectory = true,
-                    Name = _arguments.Root
-                };
+                var rootEntry = new WindowsFileEntry(_arguments.Root);
 
                 if ((match == null || match(rootEntry)) && (!minDepth.HasValue || 0 >= minDepth))
                 {

@@ -9,15 +9,16 @@ namespace find2.Tests
 {
     public class Tests
     {
-        private static string? GetGnuFindPath()
+        // Consider: packing find in with the test project.
+        private static string GetGnuFindPath()
         {
             var gnuFindPath = Environment.GetEnvironmentVariable("gnu_find_path");
             if (gnuFindPath != null) return gnuFindPath;
 
             var pathString = Environment.GetEnvironmentVariable("path");
-            if (pathString == null) return null;
+            if (pathString == null) throw new Exception("Unable to read path string.");
 
-            return pathString.Split(';')
+            var findPath = pathString.Split(';')
                 // We want to skip over the find.exe in system32, because Window's
                 // built in find is a different command. We're searching for one
                 // installed by cygwin or the like.
@@ -25,13 +26,14 @@ namespace find2.Tests
                     StringComparison.InvariantCultureIgnoreCase))
                 .Select(path => Path.Combine(path, "find.exe"))
                 .FirstOrDefault(File.Exists);
+
+            if (findPath == null) throw new Exception("Unable to locate GNU `find`.");
+            return findPath;
         }
 
         private static readonly string _gnuFindPath = GetGnuFindPath();
 
-        private static void RunTest(
-            string args,
-            params FindTestPath[] files)
+        private static void RunTest(string args, params FindTestPath[] files)
         {
             using var test = new FindTest(files);
             var foundDefault = new List<string>();
@@ -57,8 +59,8 @@ namespace find2.Tests
             };
             findDotnet.Run();
 
-            CollectionAssert.AreEquivalent(test.Expected, foundDefault);
-            CollectionAssert.AreEquivalent(test.Expected, foundDotnet);
+            CollectionAssert.AreEquivalent(test.Expected, foundDefault, "Failed default engine test vs expectations");
+            CollectionAssert.AreEquivalent(test.Expected, foundDotnet, "Failed dotnet engine test vs expectations");
 
             if (_gnuFindPath == null)
             {
@@ -87,7 +89,7 @@ namespace find2.Tests
             var a = string.Join('\n', findOutput.OrderBy(t => t));
             var b = string.Join('\n', foundDefault.OrderBy(t => t));
 
-            CollectionAssert.AreEquivalent(findOutput, foundDefault);
+            CollectionAssert.AreEquivalent(findOutput, foundDefault, "Failed default engine test vs GNU find");
         }
 
         [Test]
@@ -275,7 +277,43 @@ namespace find2.Tests
         [Test]
         public void Mmin()
         {
-            // TODO
+            var testfileset = new[] {
+                FindTestPath.ExpectedDir(""),
+                FindTestPath.ExpectedFile("New file"),
+                new FindTestPath
+                {
+                    Path = "Old file",
+                    FileType = FindTestPathType.File,
+                    LastWriteTimeUtc = DateTime.UtcNow - TimeSpan.FromMinutes(10),
+                }
+            };
+
+            RunTest("-mmin -5", testfileset);
+
+            using var referenceFile = TempFile.Create();
+            File.SetLastWriteTimeUtc(referenceFile, DateTime.UtcNow - TimeSpan.FromMinutes(5));
+            RunTest($"-newer {referenceFile}", testfileset);
+        }
+
+        [Test]
+        public void Amin()
+        {
+            var testfileset = new[] {
+                FindTestPath.ExpectedDir(""),
+                FindTestPath.ExpectedFile("New file"),
+                new FindTestPath
+                {
+                    Path = "Old file",
+                    FileType = FindTestPathType.File,
+                    LastAccessTimeUtc = DateTime.UtcNow - TimeSpan.FromMinutes(10),
+                }
+            };
+
+            RunTest("-amin -5", testfileset);
+
+            using var referenceFile = TempFile.Create();
+            File.SetLastWriteTimeUtc(referenceFile, DateTime.UtcNow - TimeSpan.FromMinutes(5));
+            RunTest($"-anewer {referenceFile}", testfileset);
         }
     }
 }
