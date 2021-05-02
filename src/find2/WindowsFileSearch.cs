@@ -7,7 +7,7 @@ using find2.Interop;
 
 namespace find2
 {
-    internal sealed class WindowsFileSearch : FileSearch<WindowsFileEntry>
+    internal sealed class WindowsFileSearch : FileSearch
     {
         public static bool IsSupported() => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
 
@@ -77,6 +77,7 @@ namespace find2
         private readonly WindowsFileSearchBuffer _buffer;
         private bool _hasFinished;
         private FILE_DIRECTORY_INFORMATION* _current;
+        private readonly WindowsFileEntry _entry;
 
         public WindowsFileSearchEnumerator(string directory, WindowsFileSearchBuffer buffer)
         {
@@ -84,6 +85,7 @@ namespace find2
             _buffer = buffer;
             _hasFinished = false;
             _current = null;
+            _entry = new WindowsFileEntry();
 
             buffer.Reset();
 
@@ -144,13 +146,14 @@ namespace find2
         // TODO
         public void Reset() { }
 
-        public WindowsFileEntry Current
+        public WindowsFileEntry? Current
         {
             get
             {
                 if (_current == null) return default;
 
-                return new WindowsFileEntry(_current);
+                _entry.Set(_current);
+                return _entry;
             }
         }
 

@@ -3,7 +3,7 @@ using System.IO;
 
 namespace find2
 {
-    internal sealed class DotNetFileSearch : FileSearch<WindowsFileEntry>
+    internal sealed class DotNetFileSearch : FileSearch
     {
         public static bool IsSupported() => true;
 
@@ -11,16 +11,19 @@ namespace find2
         {
         }
 
-        public override IEnumerator<WindowsFileEntry> GetContents(string directory)
+        public override IEnumerator<IFileEntry> GetContents(string directory)
         {
+            var fileEntry = new DotnetFileEntry();
             foreach (var entry in Directory.GetFiles(directory))
             {
-                yield return new WindowsFileEntry(Path.Combine(directory, entry));
+                fileEntry.Set(Path.Combine(directory, entry), false);
+                yield return fileEntry;
             }
 
             foreach (var entry in Directory.GetDirectories(directory))
             {
-                yield return new WindowsFileEntry(Path.Combine(directory, entry));
+                fileEntry.Set(Path.Combine(directory, entry), true);
+                yield return fileEntry;
             }
         }
 

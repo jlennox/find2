@@ -285,6 +285,7 @@ namespace find2.Tests
                     Path = "Old file",
                     FileType = FindTestPathType.File,
                     LastWriteTimeUtc = DateTime.UtcNow - TimeSpan.FromMinutes(10),
+                    Expected = false,
                 }
             };
 
@@ -306,6 +307,7 @@ namespace find2.Tests
                     Path = "Old file",
                     FileType = FindTestPathType.File,
                     LastAccessTimeUtc = DateTime.UtcNow - TimeSpan.FromMinutes(10),
+                    Expected = false,
                 }
             };
 

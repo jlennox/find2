@@ -21,7 +21,7 @@ namespace find2
         private int _noWorkWaitingCount = 0;
 
         // TODO: Move to ctor
-        public event Action<WindowsFileEntry, string>? Match;
+        public event Action<IFileEntry, string>? Match;
 
         private readonly struct QueuedDir
         {
@@ -60,7 +60,7 @@ namespace find2
             {
                 var match = _arguments.Match;
                 var minDepth = _arguments.MinDepth;
-                var rootEntry = new WindowsFileEntry(_arguments.Root);
+                var rootEntry = new DotnetFileEntry(_arguments.Root, true);
 
                 if ((match == null || match(rootEntry)) && (!minDepth.HasValue || 0 >= minDepth))
                 {
@@ -90,7 +90,7 @@ namespace find2
 
         private void SearchWorker()
         {
-            using FileSearch<WindowsFileEntry> search = _arguments.GetSearch();
+            using var search = _arguments.GetSearch();
 
             search.Initialize();
 

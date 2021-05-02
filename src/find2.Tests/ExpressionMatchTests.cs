@@ -3,9 +3,18 @@ using NUnit.Framework;
 
 namespace find2.Tests
 {
+    public sealed class MemoryFileEntry : IFileEntry
+    {
+        public bool IsDirectory { get; init; }
+        public string Name { get; init; }
+        public DateTime LastAccessTime { get; init; }
+        public DateTime LastWriteTime { get; init; }
+        public long Size { get; init; }
+    }
+
     public class ExpressionMatchTests
     {
-        private static WindowsFileEntry File(string name, bool toUpper = false)
+        private static MemoryFileEntry File(string name, bool toUpper = false)
         {
             return new() { Name = toUpper ? name.ToUpper() : name };
         }

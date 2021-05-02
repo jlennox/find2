@@ -6,7 +6,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using BinaryCheckExpression = System.Func<System.Linq.Expressions.Expression, System.Linq.Expressions.Expression, System.Linq.Expressions.BinaryExpression>;
-using MatchExpression = System.Func<find2.WindowsFileEntry, bool>;
+using MatchExpression = System.Func<find2.IFileEntry, bool>;
 
 #pragma warning disable CA2208 // Instantiate argument exceptions correctly
 
@@ -47,10 +47,11 @@ namespace find2
 
         // If null, all results should match.
         public MatchExpression? Match;
+        public string ExpressionDescription;
         public int? MinDepth;
         public int? MaxDepth;
 
-        public FileSearch<WindowsFileEntry> GetSearch()
+        public FileSearch GetSearch()
         {
             switch (DirectoryEngine)
             {
@@ -70,9 +71,10 @@ namespace find2
 
     internal static class ExpressionMatch
     {
-        private static readonly ParameterExpression _parameter = Expression.Parameter(typeof(WindowsFileEntry));
-        private static readonly MemberExpression _nameField = GetPropertyAccess<WindowsFileEntry>("Name");
-        private static readonly MemberExpression _isDirectoryField = GetPropertyAccess<WindowsFileEntry>("IsDirectory");
+        // TODO: If it removes a call.virt, make these IFileEntry dynamically reference the used implementation type.
+        private static readonly ParameterExpression _parameter = Expression.Parameter(typeof(IFileEntry), "file");
+        private static readonly MemberExpression _nameField = GetPropertyAccess<IFileEntry>(nameof(IFileEntry.Name));
+        private static readonly MemberExpression _isDirectoryField = GetPropertyAccess<IFileEntry>(nameof(IFileEntry.IsDirectory));
 
         private static readonly IReadOnlyDictionary<string, DebugOptions> _debugOptionLookup = new Dictionary<string, DebugOptions>
         {
@@ -379,6 +381,7 @@ namespace find2
             expression ??= Expression.Constant(true);
 
             findArguments.Match = Expression.Lambda<MatchExpression>(expression, _parameter).Compile(false);
+            findArguments.ExpressionDescription = expression == null ? "*" : expression.ToString();
 
             return findArguments;
         }
@@ -423,22 +426,22 @@ namespace find2
 
         internal static MethodCallExpression NameStartsWith(string match, bool caseInsensitive)
         {
-            return StringComparisonMethod("StartsWith", match, caseInsensitive);
+            return StringComparisonMethod(nameof(string.StartsWith), match, caseInsensitive);
         }
 
         internal static MethodCallExpression NameEndsWith(string match, bool caseInsensitive)
         {
-            return StringComparisonMethod("EndsWith", match, caseInsensitive);
+            return StringComparisonMethod(nameof(string.EndsWith), match, caseInsensitive);
         }
 
         internal static MethodCallExpression NameContains(string match, bool caseInsensitive)
         {
-            return StringComparisonMethod("Contains", match, caseInsensitive);
+            return StringComparisonMethod(nameof(string.Contains), match, caseInsensitive);
         }
 
         internal static MethodCallExpression NameEquals(string match, bool caseInsensitive)
         {
-            return StringComparisonMethod("Equals", match, caseInsensitive);
+            return StringComparisonMethod(nameof(string.Equals), match, caseInsensitive);
         }
 
         internal static Expression IsDirectory(bool shouldBe)
@@ -450,7 +453,7 @@ namespace find2
         {
             // TODO: The `IsDirectory` checks here are incorrect. Need to figure out why GNU `find` sometimes returns
             // directory results.
-            var sizeField = GetPropertyAccess<WindowsFileEntry>("Size");
+            var sizeField = GetPropertyAccess<IFileEntry>(nameof(IFileEntry.Size));
             var sizeConstant = Expression.Constant(size.Size);
 
             BinaryCheckExpression equalityCheck = size.Type switch {
@@ -480,13 +483,13 @@ namespace find2
 
         internal static Expression LastWriteTime(DateTime datetime, BinaryCheckExpression check)
         {
-            var field = GetPropertyAccess<WindowsFileEntry>("LastWriteTime");
+            var field = GetPropertyAccess<IFileEntry>(nameof(IFileEntry.LastWriteTime));
             return check(field, Expression.Constant(datetime));
         }
 
         internal static Expression LastAccessTime(DateTime datetime, BinaryCheckExpression check)
         {
-            var field = GetPropertyAccess<WindowsFileEntry>("LastAccessTime");
+            var field = GetPropertyAccess<IFileEntry>(nameof(IFileEntry.LastAccessTime));
             return check(field, Expression.Constant(datetime));
         }
 
@@ -496,7 +499,7 @@ namespace find2
             var exp = new Regex(match, regexOptions);
 
             var isMatchMethod = typeof(Regex).GetMethod(
-                "IsMatch",
+                nameof(Regex.IsMatch),
                 new[] { typeof(string) }, null);
 
             if (isMatchMethod == null)
