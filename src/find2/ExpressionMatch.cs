@@ -110,59 +110,21 @@ namespace find2
             return Expression.MakeMemberAccess(_parameter, GetProperty<T>(name));
         }
 
-        public static FindArguments Build(params string[]? arguments)
+        public static FindArguments Build(params string[]? args)
         {
             var findArguments = new FindArguments();
-            var i = 0;
+            string? arg;
 
-            string GetArgument(string arg)
-            {
-                if (i == arguments!.Length - 1)
-                {
-                    throw new ArgumentNullException(arg, $"Argument \"{arg}\" requires a value.");
-                }
-
-                return arguments[++i];
-            }
-
-            string GetArgumentFile(string arg)
-            {
-                var file = GetArgument(arg);
-                // TODO: Exception
-                if (!File.Exists(file)) throw new FileNotFoundException("");
-                // TODO: If the file is a symbolic link and -H/-L are specified, follow the link.
-                return file;
-            }
-
-            int GetArgumentInt(string arg)
-            {
-                var value = GetArgument(arg);
-                if (int.TryParse(value, out var intValue)) return intValue;
-                throw new ArgumentOutOfRangeException(arg, value, "Expected integral value.");
-            }
-
-            int GetPositiveInt(string arg)
-            {
-                var value = GetArgumentInt(arg);
-                if (value >= 0) return value;
-                throw new ArgumentOutOfRangeException(arg, value, "Expected positive integral value.");
-            }
-
-            int GetPositiveNonZeroInt(string arg)
-            {
-                var value = GetPositiveInt(arg);
-                if (value > 0) return value;
-                throw new ArgumentOutOfRangeException(arg, value, "Expected positive, non-zero, integral value.");
-            }
-
-            if (arguments == null || arguments.Length == 0)
+            if (args == null || args.Length == 0)
             {
                 return findArguments;
             }
 
-            for (var completed = false; i < arguments.Length && !completed; ++i)
+            var arguments = new Arguments(args);
+            var completed = false;
+
+            while (!completed && (arg = arguments.Get()) != null)
             {
-                var arg = arguments[i];
                 if (string.IsNullOrWhiteSpace(arg)) continue;
 
                 switch (arg)
@@ -177,7 +139,7 @@ namespace find2
                         findArguments.FollowSymbolicLinkBehavior = FollowSymbolicLinkBehavior.WhenArgument;
                         break;
                     case "-D":
-                        var debugOptions = GetArgument(arg).Split(',');
+                        var debugOptions = arguments.GetValue().Split(',');
                         foreach (var debugOption in debugOptions)
                         {
                             if (!_debugOptionLookup.TryGetValue(debugOption, out var option))
@@ -189,7 +151,7 @@ namespace find2
                         }
                         break;
                     case "--engine":
-                        var engineOption = GetArgument(arg);
+                        var engineOption = arguments.GetValue();
                         if (!_engineLookup.TryGetValue(engineOption, out var engine))
                         {
                             throw new Exception($"Unsupported {arg} flag, {engineOption}");
@@ -198,37 +160,38 @@ namespace find2
                         findArguments.DirectoryEngine = engine;
                         break;
                     case "--threads":
-                        findArguments.ThreadCount = GetPositiveNonZeroInt(arg);
+                        findArguments.ThreadCount = arguments.GetPositiveNonZeroIntValue();
                         break;
                     case "--timeout":
-                        findArguments.Timeout = TimeSpan.FromMilliseconds(GetPositiveNonZeroInt(arg));
+                        findArguments.Timeout = TimeSpan.FromMilliseconds(arguments.GetPositiveNonZeroIntValue());
                         break;
                     case "-0level": findArguments.OptimizationLevel = 0; break;
                     case "-1level": findArguments.OptimizationLevel = 1; break;
                     case "-2level": findArguments.OptimizationLevel = 2; break;
                     case "-3level": findArguments.OptimizationLevel = 3; break;
                     default:
-                        --i;
+                        arguments.Index--;
                         completed = true;
                         break;
                 }
             }
 
-            if (arguments.Length > i && !_matchOptions.Contains(arguments[i]))
+            // How we know if it's a path for argument is kind of ambiguous...
+            if (args.Length > arguments.Index && !_matchOptions.Contains(args[arguments.Index]))
             {
-                findArguments.Root = arguments[i];
-                ++i;
+                findArguments.Root = args[arguments.Index];
+                ++arguments.Index;
             }
 
-            if (arguments.Length <= i)
+            if (args.Length <= arguments.Index)
             {
                 return findArguments;
             }
 
             // Simplify to avoid needing to handle this exceptional case.
-            if (arguments[i] == "(" && arguments[^1] == ")")
+            if (args[arguments.Index] == "(" && args[^1] == ")")
             {
-                arguments = arguments.Skip(1).Take(arguments.Length - 2).ToArray();
+                arguments = new Arguments(args.Skip(1).Take(args.Length - 2).ToArray());
             }
 
             Func<Expression, Expression>? wrappingExpression = null;
@@ -257,9 +220,8 @@ namespace find2
                 expression = binaryOp(expression, newExpression);
             }
 
-            for (; i < arguments.Length; ++i)
+            while ((arg = arguments.Get()) != null)
             {
-                var arg = arguments[i];
                 if (string.IsNullOrWhiteSpace(arg)) continue;
 
                 switch (arg)
@@ -283,16 +245,16 @@ namespace find2
                         }
                         break;
                     case "-name":
-                        AddExpression(NameBlob(GetArgument(arg), false, out _));
+                        AddExpression(NameBlob(arguments.GetValue(), false, out _));
                         break;
                     case "-iname":
-                        AddExpression(NameBlob(GetArgument(arg), true, out _));
+                        AddExpression(NameBlob(arguments.GetValue(), true, out _));
                         break;
                     case "-regex":
-                        AddExpression(NameRegex(GetArgument(arg), false));
+                        AddExpression(NameRegex(arguments.GetValue(), false));
                         break;
                     case "-iregex":
-                        AddExpression(NameRegex(GetArgument(arg), true));
+                        AddExpression(NameRegex(arguments.GetValue(), true));
                         break;
                     case "-true":
                         AddExpression(Expression.Constant(true));
@@ -313,7 +275,7 @@ namespace find2
                         binaryExpression = Expression.AndAlso;
                         break;
                     case "-type":
-                        var typeArgs = GetArgument(arg);
+                        var typeArgs = arguments.GetValue();
                         foreach (var typeArg in typeArgs.Split(','))
                         {
                             switch (typeArg)
@@ -338,34 +300,34 @@ namespace find2
 
                         break;
                     case "-size":
-                        AddExpression(MatchSize(new FindFileSize(GetArgument(arg))));
+                        AddExpression(MatchSize(new FindFileSize(arguments.GetValue())));
                         break;
                     case "-maxdepth":
                         // TODO: Technically -maxdepth and -mindepth need to come before all other parameters, and when
                         // inside the usual flow, should exception.
-                        findArguments.MaxDepth = GetPositiveInt(arg);
+                        findArguments.MaxDepth = arguments.GetPositiveIntValue();
                         break;
                     case "-mindepth":
-                        findArguments.MinDepth = GetPositiveInt(arg);
+                        findArguments.MinDepth = arguments.GetPositiveIntValue();
                         break;
                     case "-mmin":
                         AddExpression(LastWriteTime(
-                            DateTime.UtcNow + TimeSpan.FromMinutes(GetArgumentInt(arg)),
+                            DateTime.UtcNow + TimeSpan.FromMinutes(arguments.GetIntValue()),
                             Expression.GreaterThanOrEqual));
                         break;
                     case "-newer":
                         AddExpression(LastWriteTime(
-                            File.GetLastAccessTimeUtc(GetArgumentFile(arg)),
+                            File.GetLastAccessTimeUtc(arguments.GetFileValue()),
                             Expression.GreaterThanOrEqual));
                         break;
                     case "-amin":
                         AddExpression(LastAccessTime(
-                            DateTime.UtcNow + TimeSpan.FromMinutes(GetArgumentInt(arg)),
+                            DateTime.UtcNow + TimeSpan.FromMinutes(arguments.GetIntValue()),
                             Expression.GreaterThanOrEqual));
                         break;
                     case "-anewer":
                         AddExpression(LastAccessTime(
-                            File.GetLastAccessTimeUtc(GetArgumentFile(arg)),
+                            File.GetLastAccessTimeUtc(arguments.GetFileValue()),
                             Expression.GreaterThanOrEqual));
                         break;
                     default:
