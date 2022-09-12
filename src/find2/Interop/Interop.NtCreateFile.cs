@@ -15,6 +15,8 @@ internal enum BOOLEAN : byte
 
 internal partial class NtDll
 {
+    public static readonly IntPtr INVALID_HANDLE_VALUE = new(-1);
+
     // https://msdn.microsoft.com/en-us/library/bb432380.aspx
     // https://msdn.microsoft.com/en-us/library/windows/hardware/ff566424.aspx
     [DllImport(Libraries.NtDll, CharSet = CharSet.Unicode, ExactSpelling = true)]

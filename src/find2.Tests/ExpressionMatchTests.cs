@@ -24,12 +24,12 @@ public class ExpressionMatchTests
         Test(param, null, null);
     }
 
-    private static void Test(string param, string[] matches, string[] mismatches, bool toUpper = false)
+    private static void Test(string param, string[]? matches, string[]? mismatches, bool toUpper = false)
     {
         Test(param.Split(' '), matches, mismatches, toUpper);
     }
 
-    private static void Test(string[] param, string[] matches, string[] mismatches, bool toUpper = false)
+    private static void Test(string[] param, string[]? matches, string[]? mismatches, bool toUpper = false)
     {
         var matcher = ExpressionMatch.Build(param).Match;
 

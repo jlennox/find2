@@ -90,7 +90,7 @@ internal unsafe struct FILE_DIRECTORY_INFORMATION
     public bool IsParentDirectoryEntry()
     {
         // Must be a directory.
-        if ((FileAttributes & FileAttributes.Directory) == 0) return false;
+        if (!FileAttributes.HasFlag(FileAttributes.Directory)) return false;
 
         // Must be a file length of 1 or 2.
         if (FileNameLength > sizeof(char) * 2) return false;
@@ -99,10 +99,7 @@ internal unsafe struct FILE_DIRECTORY_INFORMATION
         if (_fileName != '.') return false;
 
         // Matched '.'
-        if (FileNameLength == sizeof(char))
-        {
-            return true;
-        }
+        if (FileNameLength == sizeof(char)) return true;
 
         // Matched '..'
         fixed (char* filenamePtr = &_fileName)

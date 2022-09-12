@@ -11,12 +11,10 @@ internal sealed class WindowsFileSearch : FileSearch
 {
     public static bool IsSupported() => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
 
-    private WindowsFileSearchBuffer _buffer;
+    private readonly WindowsFileSearchBuffer _buffer = new();
 
     public override void Initialize()
     {
-        // TODO: Why not initialize this in the field member?
-        _buffer = new WindowsFileSearchBuffer();
     }
 
     public override IEnumerator<WindowsFileEntry> GetContents(string directory)
@@ -51,7 +49,9 @@ internal sealed class WindowsFileSearchBuffer : IDisposable
     {
         // Grow the buffer on additional passes.
         // NtQueryDirectoryFile has costs that scale by page count due to ProbeForWrite.
-        // If everything fits in a single pass then the better off it all is.
+        // This means the buffer should be as small as possible, but not too small. Too
+        // small and the amount of system calls hurts performance. Too large and the
+        // number of ProbeForWrite hurt performance.
         _usableBufferSize = Math.Min(_usableBufferSize * 2, _bufferSize);
     }
 
@@ -129,6 +129,7 @@ internal unsafe struct WindowsFileSearchEnumerator : IEnumerator<WindowsFileEntr
             while (true)
             {
                 // Slip past "." and ".." entries.
+                // NOTE: Uh, is this `if` inverted...?
                 if (!_current->IsParentDirectoryEntry()) break;
 
                 _current = FILE_DIRECTORY_INFORMATION.GetNextInfo(_current);
