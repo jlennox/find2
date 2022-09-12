@@ -46,8 +46,8 @@ namespace find2
         public DirectoryEngine DirectoryEngine;
 
         // If null, all results should match.
-        public MatchExpression? Match;
-        public string ExpressionDescription;
+        public MatchExpression Match = _ => true;
+        public string ExpressionDescription = "";
         public int? MinDepth;
         public int? MaxDepth;
 
@@ -94,9 +94,12 @@ namespace find2
             { "dotnet", DirectoryEngine.Dotnet },
         };
 
+        // Not the biggest fan of this.
         private static readonly IReadOnlySet<string> _matchOptions = new HashSet<string> {
-            "(", ")", "-name", "-iname", "-regex", "-iregex", "-true", "-false", "-not", "!", "-or", "-o", "-and", "-a",
-            "-type", "-size", "-maxdepth", "-mindepth", "-mmin", "-newer", "-amin", "-anewer"
+            "-name", "-iname", "-regex", "-iregex",
+            "-type", "-size", "-maxdepth", "-mindepth",
+            "-mmin", "-newer", "-amin", "-anewer",
+            "(", ")", "-true", "-false", "-not", "!", "-or", "-o", "-and", "-a"
         };
 
         private static PropertyInfo GetProperty<T>(string name)
@@ -466,7 +469,8 @@ namespace find2
 
             if (isMatchMethod == null)
             {
-                throw new ArgumentOutOfRangeException(nameof(isMatchMethod), "IsMatch", "Unable to locate 'IsMatch' method.");
+                throw new ArgumentOutOfRangeException(
+                    nameof(isMatchMethod), nameof(Regex.IsMatch), "Unable to locate method.");
             }
 
             return Expression.Call(Expression.Constant(exp), isMatchMethod, _nameField);

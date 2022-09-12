@@ -11,7 +11,7 @@ namespace find2
         {
             var arguments = ExpressionMatch.Build(args);
             using var find = new Find(arguments);
-            find.Match += (_, fullPath) => Console.WriteLine(fullPath);
+            find.Matched += (_, fullPath) => Console.WriteLine(fullPath);
             find.Run();
         }
     }

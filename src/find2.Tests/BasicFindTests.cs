@@ -42,7 +42,7 @@ namespace find2.Tests
             var combinedArgs = $"{test.Root} {args}".Trim();
 
             var find = new Find(ExpressionMatch.Build(combinedArgs.Split(' ')));
-            find.Match += (_, fullPath) => {
+            find.Matched += (_, fullPath) => {
                 lock (foundDefault)
                 {
                     foundDefault.Add(fullPath);
@@ -51,7 +51,7 @@ namespace find2.Tests
             find.Run();
 
             var findDotnet = new Find(ExpressionMatch.Build($"--engine dotnet {combinedArgs}".Split(' ')));
-            findDotnet.Match += (_, fullPath) => {
+            findDotnet.Matched += (_, fullPath) => {
                 lock (foundDefault)
                 {
                     foundDotnet.Add(fullPath);

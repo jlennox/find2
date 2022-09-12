@@ -24,10 +24,10 @@ namespace find2
         public long Unit { get; }
         public FileSizeComparisonType Type { get; }
 
-        public FindFileSize(string input)
+        public FindFileSize(ReadOnlySpan<char> input)
         {
             // TODO
-            if (string.IsNullOrWhiteSpace(input)) throw new Exception("");
+            if (input.IsWhiteSpace()) throw new Exception("");
 
             var unit = 512L;
             Type = FileSizeComparisonType.Equals;

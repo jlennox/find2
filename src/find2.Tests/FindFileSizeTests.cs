@@ -11,7 +11,11 @@ namespace find2.Tests
         [TestCase("+23M", 1024 * 1024 * 23, FileSizeComparisonType.Greater, 1024 * 1024)]
         [TestCase("23", 512 * 23, FileSizeComparisonType.Equals, 512)]
         [TestCase("23c", 1 * 23, FileSizeComparisonType.Equals, 1)]
-        public void CheckValidPrefixesAndSuffixes(string input, long expectedSize, FileSizeComparisonType expectedType, long expectedUnit)
+        public void CheckValidPrefixesAndSuffixes(
+            string input,
+            long expectedSize,
+            FileSizeComparisonType expectedType,
+            long expectedUnit)
         {
             var findFileSize = new FindFileSize(input);
             Assert.AreEqual(expectedSize, findFileSize.Size);
@@ -27,6 +31,7 @@ namespace find2.Tests
         [TestCase("zM")]
         [TestCase("1z")]
         [TestCase("=1M")]
+        [TestCase("")]
         public void InvalidInputExceptions(string input)
         {
             Assert.Throws<Exception>(() => new FindFileSize(input));

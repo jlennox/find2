@@ -21,7 +21,7 @@ namespace find2
         private int _noWorkWaitingCount = 0;
 
         // TODO: Move to ctor
-        public event Action<IFileEntry, string>? Match;
+        public event Action<IFileEntry, string>? Matched;
 
         private readonly struct QueuedDir
         {
@@ -62,9 +62,9 @@ namespace find2
                 var minDepth = _arguments.MinDepth;
                 var rootEntry = new DotnetFileEntry(_arguments.Root, true);
 
-                if ((match == null || match(rootEntry)) && (!minDepth.HasValue || 0 >= minDepth))
+                if (match(rootEntry) && (!minDepth.HasValue || 0 >= minDepth))
                 {
-                    Match?.Invoke(rootEntry, _arguments.Root);
+                    Matched?.Invoke(rootEntry, _arguments.Root);
                 }
             }
 
@@ -121,7 +121,7 @@ namespace find2
             while (!_cts.IsCancellationRequested)
             {
                 // Attempt to perform the cheaper dequeue first instead of a possible system call via
-                // [_availableWorkEvent] to check for work. Even if [_availableWorkEvent triggers, it's possible there
+                // [_availableWorkEvent] to check for work. Even if [_availableWorkEvent] triggers, it's possible there
                 // was a race that we lost and re-enter the wait.
                 if (!_queuedDir.TryDequeue(out var newDirs))
                 {
@@ -140,6 +140,8 @@ namespace find2
                     }
 
                     Interlocked.Decrement(ref _noWorkWaitingCount);
+
+                    // It's possible to lose the [TryDequeue] race. So try again.
                     continue;
                 }
 
@@ -151,8 +153,8 @@ namespace find2
                 while (dirsToCheck.Count > 0)
                 {
                     var dir = dirsToCheck.Pop();
-                    var maxDepthPasses = !maxDepth.HasValue || dir.Depth < maxDepth;
-                    var minDepthPasses = !minDepth.HasValue || dir.Depth >= minDepth;
+                    var maxDepthCheckPasses = !maxDepth.HasValue || dir.Depth < maxDepth;
+                    var minDepthCheckPasses = !minDepth.HasValue || dir.Depth >= minDepth;
 
                     foreach (var pathx in dir.Paths ?? emptyPathsPlaceholder)
                     {
@@ -170,7 +172,7 @@ namespace find2
                             var entry = results.Current;
                             var innerHasAddedSubdirs = hasAddedSubdirs;
 
-                            if (entry.IsDirectory && maxDepthPasses)
+                            if (entry.IsDirectory && maxDepthCheckPasses)
                             {
                                 // The first additional work we come across, add it to this worker's internal queue
                                 // instead of to the global queue. This prevents the need of costly thread
@@ -190,10 +192,10 @@ namespace find2
                                 }
                             }
 
-                            if ((match == null || match(entry)) && minDepthPasses)
+                            if (match(entry) && minDepthCheckPasses)
                             {
                                 var fullPath = Path.Combine(path, entry.Name);
-                                Match?.Invoke(entry, fullPath);
+                                Matched?.Invoke(entry, fullPath);
                             }
 
                             // This code is weird and needs proof that it's doing anything productive.
