@@ -13,45 +13,46 @@ internal enum BOOLEAN : byte
     TRUE = 1,
 }
 
-internal partial class NtDll
+internal static partial class NtDll
 {
     public static readonly IntPtr INVALID_HANDLE_VALUE = new(-1);
 
     // https://msdn.microsoft.com/en-us/library/bb432380.aspx
     // https://msdn.microsoft.com/en-us/library/windows/hardware/ff566424.aspx
-    [DllImport(Libraries.NtDll, CharSet = CharSet.Unicode, ExactSpelling = true)]
-    private static extern unsafe int NtCreateFile(
-        out IntPtr FileHandle,
+    [LibraryImport(Libraries.NtDll)]
+    private static unsafe partial uint NtCreateFile(
+        IntPtr* FileHandle,
         DesiredAccess DesiredAccess,
-        ref OBJECT_ATTRIBUTES ObjectAttributes,
-        out IO_STATUS_BLOCK IoStatusBlock,
+        OBJECT_ATTRIBUTES* ObjectAttributes,
+        IO_STATUS_BLOCK* IoStatusBlock,
         long* AllocationSize,
-        System.IO.FileAttributes FileAttributes,
-        System.IO.FileShare ShareAccess,
+        FileAttributes FileAttributes,
+        FileShare ShareAccess,
         CreateDisposition CreateDisposition,
         CreateOptions CreateOptions,
         void* EaBuffer,
         uint EaLength);
 
-    internal static unsafe (int status, IntPtr handle) CreateFile(
+    internal static unsafe (uint status, IntPtr handle) CreateFile(
         ReadOnlySpan<char> path,
         IntPtr rootDirectory,
         CreateDisposition createDisposition,
         DesiredAccess desiredAccess = DesiredAccess.FILE_GENERIC_READ | DesiredAccess.SYNCHRONIZE,
-        System.IO.FileShare shareAccess = System.IO.FileShare.ReadWrite | System.IO.FileShare.Delete,
-        System.IO.FileAttributes fileAttributes = 0,
+        FileShare shareAccess = FileShare.ReadWrite | FileShare.Delete,
+        FileAttributes fileAttributes = 0,
         CreateOptions createOptions = CreateOptions.FILE_SYNCHRONOUS_IO_NONALERT,
         ObjectAttributes objectAttributes = ObjectAttributes.OBJ_CASE_INSENSITIVE,
         void* eaBuffer = null,
-        uint eaLength = 0)
+        uint eaLength = 0,
+        long* preallocationSize = null)
     {
-        fixed (char* pathPtr = &MemoryMarshal.GetReference(path))
+        fixed (char* c = &MemoryMarshal.GetReference(path))
         {
             UNICODE_STRING name = new UNICODE_STRING
             {
                 Length = checked((ushort)(path.Length * sizeof(char))),
                 MaximumLength = checked((ushort)(path.Length * sizeof(char))),
-                Buffer = (IntPtr)pathPtr
+                Buffer = (IntPtr)c
             };
 
             OBJECT_ATTRIBUTES attributes = new OBJECT_ATTRIBUTES(
@@ -59,12 +60,14 @@ internal partial class NtDll
                 objectAttributes,
                 rootDirectory);
 
-            int status = NtCreateFile(
-                out IntPtr handle,
+            IntPtr handle;
+            IO_STATUS_BLOCK statusBlock;
+            uint status = NtCreateFile(
+                &handle,
                 desiredAccess,
-                ref attributes,
-                out IO_STATUS_BLOCK statusBlock,
-                AllocationSize: null,
+                &attributes,
+                &statusBlock,
+                AllocationSize: preallocationSize,
                 fileAttributes,
                 shareAccess,
                 createDisposition,
@@ -93,8 +96,8 @@ internal partial class NtDll
     /// <summary>
     /// WARNING: This method does not implicitly handle long paths. Use CreateFile.
     /// </summary>
-    [DllImport(Libraries.Kernel32, EntryPoint = "CreateFileW", SetLastError = true, CharSet = CharSet.Unicode, BestFitMapping = false, ExactSpelling = true)]
-    private static extern unsafe IntPtr CreateFilePrivate_IntPtr(
+    [LibraryImport(Libraries.Kernel32, EntryPoint = "CreateFileW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+    private static unsafe partial IntPtr CreateFilePrivate_IntPtr(
         string lpFileName,
         int dwDesiredAccess,
         FileShare dwShareMode,
@@ -222,8 +225,9 @@ internal partial class NtDll
         internal const int ERROR_RESOURCE_LANG_NOT_FOUND = 0x717;
     }
 
-    [DllImport("Kernel32", ExactSpelling = true, SetLastError = true)]
-    internal static extern bool CloseHandle(IntPtr hObject);
+    [LibraryImport("Kernel32", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool CloseHandle(IntPtr hObject);
 
     internal static IntPtr CreateDirectoryHandle(string path, bool ignoreNotFound = false)
     {
@@ -247,9 +251,12 @@ internal partial class NtDll
                 0,
                 rootDirectory);
 
+            IntPtr handle;
+            IO_STATUS_BLOCK ioStatusBlock;
+
             var status = NtCreateFile(
-                out var handle, DesiredAccess.FILE_GENERIC_READ | DesiredAccess.SYNCHRONIZE,
-                ref attributes, out var ioStatusBlock, null,
+                &handle, DesiredAccess.FILE_GENERIC_READ | DesiredAccess.SYNCHRONIZE,
+                &attributes, &ioStatusBlock, null,
                 0, FileShare.ReadWrite | FileShare.Delete, CreateDisposition.FILE_OPEN,
                 CreateOptions.FILE_DIRECTORY_FILE | CreateOptions.FILE_DIRECTORY_FILE |
                 CreateOptions.FILE_OPEN_FOR_BACKUP_INTENT | CreateOptions.FILE_SYNCHRONOUS_IO_NONALERT,
@@ -776,13 +783,6 @@ internal enum ObjectAttributes : uint
 [StructLayout(LayoutKind.Sequential)]
 internal struct UNICODE_STRING
 {
-    public UNICODE_STRING(IntPtr buffer, ushort length)
-    {
-        Length = length;
-        MaximumLength = length;
-        Buffer = buffer;
-    }
-
     /// <summary>
     /// Length in bytes, not including the null terminator, if any.
     /// </summary>
@@ -793,4 +793,11 @@ internal struct UNICODE_STRING
     /// </summary>
     internal ushort MaximumLength;
     internal IntPtr Buffer;
+
+    public UNICODE_STRING(IntPtr buffer, ushort length)
+    {
+        Length = length;
+        MaximumLength = length;
+        Buffer = buffer;
+    }
 }

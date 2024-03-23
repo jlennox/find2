@@ -17,8 +17,8 @@ internal struct LongFileTime
     /// </summary>
     internal long TicksSince1601;
 
-    internal DateTimeOffset ToDateTimeOffset() => new(DateTime.FromFileTimeUtc(TicksSince1601));
-    internal DateTime ToDateTime() => DateTime.FromFileTimeUtc(TicksSince1601);
+    internal readonly DateTimeOffset ToDateTimeOffset() => new(DateTime.FromFileTimeUtc(TicksSince1601));
+    internal readonly DateTime ToDateTime() => DateTime.FromFileTimeUtc(TicksSince1601);
 }
 
 [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
@@ -62,6 +62,7 @@ internal unsafe struct FILE_DIRECTORY_INFORMATION
 
     public char _fileName;
 
+    // TODO: Optimization target?
     public ReadOnlySpan<char> FileName
     {
         get
@@ -119,8 +120,8 @@ internal partial class NtDll
 {
     // https://msdn.microsoft.com/en-us/library/windows/hardware/ff556633.aspx
     // https://msdn.microsoft.com/en-us/library/windows/hardware/ff567047.aspx
-    [DllImport(Libraries.NtDll, CharSet = CharSet.Unicode, ExactSpelling = true)]
-    public static extern unsafe uint NtQueryDirectoryFile(
+    [LibraryImport(Libraries.NtDll)]
+    public static unsafe partial int NtQueryDirectoryFile(
         IntPtr FileHandle,
         IntPtr Event,
         IntPtr ApcRoutine,

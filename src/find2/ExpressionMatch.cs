@@ -463,14 +463,12 @@ internal static class ExpressionMatch
         var regexOptions = RegexOptions.Compiled | (caseInsensitive ? RegexOptions.IgnoreCase : RegexOptions.None);
         var exp = new Regex(match, regexOptions);
 
-        var isMatchMethod = typeof(Regex).GetMethod(
-            nameof(Regex.IsMatch),
-            new[] { typeof(string) }, null);
-
+        var isMatchMethod = typeof(Regex).GetMethod(nameof(Regex.IsMatch), [typeof(string)], null);
         if (isMatchMethod == null)
         {
             throw new ArgumentOutOfRangeException(
-                nameof(isMatchMethod), nameof(Regex.IsMatch), "Unable to locate method.");
+                nameof(isMatchMethod), nameof(Regex.IsMatch),
+                "Unable to locate method.");
         }
 
         return Expression.Call(Expression.Constant(exp), isMatchMethod, _nameField);
@@ -478,10 +476,7 @@ internal static class ExpressionMatch
 
     private static MethodCallExpression StringComparisonMethod(string method, string match, bool caseInsensitive)
     {
-        var methodInfo = typeof(string).GetMethod(
-            method,
-            new[] { typeof(string), typeof(StringComparison) }, null);
-
+        var methodInfo = typeof(string).GetMethod(method, [typeof(string), typeof(StringComparison)], null);
         if (methodInfo == null)
         {
             throw new ArgumentOutOfRangeException(nameof(method), method, "Unable to locate method.");

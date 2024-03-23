@@ -17,6 +17,9 @@ internal sealed class Program
             return;
         }
 
+        // TODO: Add optional output buffering option.
+        // Might help performance on high output options by reducing system calls.
+        // Add bench mark to determine performance of this. Perhaps have an automatic enablement.
         using var find = new Find(arguments);
         find.Matched += (_, fullPath) => Console.WriteLine(fullPath);
         find.Run();

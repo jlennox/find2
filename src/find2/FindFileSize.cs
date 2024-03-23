@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 
 namespace find2;
 
@@ -10,24 +9,17 @@ internal enum FileSizeComparisonType
 
 internal readonly struct FindFileSize
 {
-    private static readonly IReadOnlyDictionary<char, long> _fileSizeUnitLookup = new Dictionary<char, long>
-    {
-        { 'b', 512 },
-        { 'c', 1 },
-        { 'w', 2 },
-        { 'k', 1024 },
-        { 'M', 1024 * 1024 },
-        { 'G', 1024 * 1024 * 1024 },
-    };
-
     public long Size { get; }
     public long Unit { get; }
     public FileSizeComparisonType Type { get; }
 
     public FindFileSize(ReadOnlySpan<char> input)
     {
-        // TODO
-        if (input.IsWhiteSpace()) throw new Exception("");
+        // TODO: Sync all exception messages with actual find?
+        if (input.IsWhiteSpace())
+        {
+            throw new ArgumentNullException(nameof(input), "File size missing.");
+        }
 
         var unit = 512L;
         Type = FileSizeComparisonType.Equals;
@@ -44,24 +36,34 @@ internal readonly struct FindFileSize
                 break;
         }
 
-        if (char.IsLetter(input[^1]))
+        var unitChar = input[^1];
+        if (char.IsLetter(unitChar))
         {
-            if (!_fileSizeUnitLookup.TryGetValue(input[^1], out unit))
-            {
-                // TODO
-                throw new Exception("");
-            }
-
+            unit = GetUnitMeasurement(unitChar, input);
             input = input[..^1];
         }
 
         if (!long.TryParse(input, out var value))
         {
-            // TODO
-            throw new Exception("");
+            throw new ArgumentOutOfRangeException(
+                nameof(input), input.ToString(),
+                $"Expected numerical file size, got '{input}'");
         }
 
         Size = value * unit;
         Unit = unit;
     }
+
+    internal static int GetUnitMeasurement(char unitChar, ReadOnlySpan<char> input) => unitChar switch
+    {
+        'b' => 512,
+        'c' => 1,
+        'w' => 2,
+        'k' => 1024,
+        'M' => 1024 * 1024,
+        'G' => 1024 * 1024 * 1024,
+        _ => throw new ArgumentOutOfRangeException(
+            nameof(input), input.ToString(),
+            $"Expected valid unit of measurement, got '{unitChar}'"),
+    };
 }

@@ -3,42 +3,51 @@ using System.Runtime.InteropServices;
 
 namespace find2.Interop;
 
-internal class Kernel32
+internal static partial class Kernel32
 {
-    [DllImport("kernel32.dll")]
-    private static extern unsafe bool GetLogicalProcessorInformation(SYSTEM_LOGICAL_PROCESSOR_INFORMATION* buffer, out int bufferSize);
+    [LibraryImport(Libraries.Kernel32)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static unsafe partial bool GetLogicalProcessorInformation(SYSTEM_LOGICAL_PROCESSOR_INFORMATION* buffer, out int bufferSize);
 
     private static unsafe int GetProcessorCoreCount()
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
             // TODO: Arg, make this work properly for cores on other platforms.
-            // sysconf(_SC_NPROCESSORS_ONLN)? Might work on Windows?
+            // sysconf(_SC_NPROCESSORS_ONLN) might work on Linux?
             return Environment.ProcessorCount;
         }
 
-        GetLogicalProcessorInformation(null, out var bufferSize);
-        var numEntries = bufferSize / sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION);
-        var coreInfo = new SYSTEM_LOGICAL_PROCESSOR_INFORMATION[numEntries];
-
-        fixed (SYSTEM_LOGICAL_PROCESSOR_INFORMATION* pCoreInfo = coreInfo)
+        if (!GetLogicalProcessorInformation(null, out var bufferSize))
         {
-            GetLogicalProcessorInformation(pCoreInfo, out bufferSize);
-            var cores = 0;
-            for (var i = 0; i < numEntries; ++i)
-            {
-                var info = pCoreInfo[i];
-                if (info.Relationship == LOGICAL_PROCESSOR_RELATIONSHIP.RelationProcessorCore)
-                    ++cores;
-            }
-            return cores > 0 ? cores : 1;
+            return Environment.ProcessorCount;
         }
+
+        var numEntries = bufferSize / sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION);
+        var coreInfo = stackalloc SYSTEM_LOGICAL_PROCESSOR_INFORMATION[numEntries];
+
+        if (!GetLogicalProcessorInformation(coreInfo, out bufferSize))
+        {
+            return Environment.ProcessorCount;
+        }
+
+        var cores = 0;
+        for (var i = 0; i < numEntries; ++i)
+        {
+            var info = coreInfo[i];
+            if (info.Relationship == LOGICAL_PROCESSOR_RELATIONSHIP.RelationProcessorCore)
+            {
+                ++cores;
+            }
+        }
+
+        return cores > 0 ? cores : Environment.ProcessorCount;
     }
 
     public static readonly int NumPhysicalCores = GetProcessorCoreCount();
 
     [StructLayout(LayoutKind.Sequential)]
-    struct CACHE_DESCRIPTOR
+    private struct CACHE_DESCRIPTOR
     {
         public byte Level;
         public byte Associativity;
@@ -48,7 +57,7 @@ internal class Kernel32
     }
 
     [StructLayout(LayoutKind.Explicit)]
-    struct SYSTEM_LOGICAL_PROCESSOR_INFORMATION_UNION
+    private struct SYSTEM_LOGICAL_PROCESSOR_INFORMATION_UNION
     {
         [FieldOffset(0)] public byte ProcessorCore;
         [FieldOffset(0)] public uint NumaNode;
@@ -57,7 +66,7 @@ internal class Kernel32
         [FieldOffset(8)] private ulong Reserved2;
     }
 
-    public enum LOGICAL_PROCESSOR_RELATIONSHIP
+    private enum LOGICAL_PROCESSOR_RELATIONSHIP
     {
         RelationProcessorCore,
         RelationNumaNode,
@@ -67,7 +76,7 @@ internal class Kernel32
         RelationAll = 0xffff
     }
 
-    struct SYSTEM_LOGICAL_PROCESSOR_INFORMATION
+    private struct SYSTEM_LOGICAL_PROCESSOR_INFORMATION
     {
         public UIntPtr ProcessorMask;
         public LOGICAL_PROCESSOR_RELATIONSHIP Relationship;
