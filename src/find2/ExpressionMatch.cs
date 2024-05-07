@@ -44,6 +44,7 @@ internal sealed class FindArguments
     public string Root = ".";
     public FollowSymbolicLinkBehavior FollowSymbolicLinkBehavior = FollowSymbolicLinkBehavior.Never;
     public DirectoryEngine DirectoryEngine;
+    public bool Print0;
 
     // If null, all results should match.
     public MatchExpression Match = _ => true;
@@ -99,7 +100,8 @@ internal static class ExpressionMatch
         "-name", "-iname", "-regex", "-iregex",
         "-type", "-size", "-maxdepth", "-mindepth",
         "-mmin", "-newer", "-amin", "-anewer",
-        "(", ")", "-true", "-false", "-not", "!", "-or", "-o", "-and", "-a"
+        "(", ")", "-true", "-false", "-not", "!", "-or", "-o", "-and", "-a",
+        "-print0",
     };
 
     private static PropertyInfo GetProperty<T>(string name)
@@ -332,6 +334,9 @@ internal static class ExpressionMatch
                     AddExpression(LastAccessTime(
                         File.GetLastAccessTimeUtc(arguments.GetFileValue()),
                         Expression.GreaterThanOrEqual));
+                    break;
+                case "-print0":
+                    findArguments.Print0 = true;
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(arg), arg, $"Unknown argument \"{arg}\".");

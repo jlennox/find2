@@ -43,11 +43,9 @@ internal sealed class DotnetFileEntry : IFileEntry
     public long Size => IsDirectory ? 0 : _fileInfo.Value.Length;
 
     private string _fullPath;
-
     private Lazy<FileInfo> _fileInfo;
 
     public DotnetFileEntry() { }
-
     public DotnetFileEntry(string path, bool isDirectory)
     {
         Set(path, isDirectory);

@@ -33,15 +33,31 @@ public class Tests
 
     private static readonly string _gnuFindPath = GetGnuFindPath();
 
+    private static void RunTestStdoutCompared(string args, params FindTestPath[] files)
+    {
+        RunTest(args.Split(' '), true, files);
+    }
+
     private static void RunTest(string args, params FindTestPath[] files)
+    {
+        RunTest(args.Split(' '), files);
+    }
+
+    private static void RunTest(string[] args, params FindTestPath[] files)
+    {
+        RunTest(args, false, files);
+    }
+
+    private static void RunTest(string[] args, bool compareStdOut, FindTestPath[] files)
     {
         using var test = new FindTest(files);
         var foundDefault = new List<string>();
         var foundDotnet = new List<string>();
 
-        var combinedArgs = $"{test.Root} {args}".Trim();
+        var combinedArgs = new List<string> { test.Root };
+        combinedArgs.AddRange(args);
 
-        var find = new Find(ExpressionMatch.Build(combinedArgs.Split(' ')));
+        var find = new Find(ExpressionMatch.Build(combinedArgs.ToArray()));
         find.Matched += (_, fullPath) => {
             lock (foundDefault)
             {
@@ -50,7 +66,9 @@ public class Tests
         };
         find.Run();
 
-        var findDotnet = new Find(ExpressionMatch.Build($"--engine dotnet {combinedArgs}".Split(' ')));
+        var engineArgs = new List<string> { "--engine", "dotnet" };
+        engineArgs.AddRange(combinedArgs);
+        var findDotnet = new Find(ExpressionMatch.Build(engineArgs.ToArray()));
         findDotnet.Matched += (_, fullPath) => {
             lock (foundDefault)
             {
@@ -70,7 +88,7 @@ public class Tests
         using var findProc = new Process {
             StartInfo = new ProcessStartInfo {
                 FileName = _gnuFindPath,
-                Arguments = combinedArgs,
+                Arguments = string.Join(' ', combinedArgs),
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
             }
@@ -78,18 +96,26 @@ public class Tests
 
         findProc.Start();
 
-        var findOutput = findProc.StandardOutput.ReadToEnd()
+        var rawGnuFindOutput = findProc.StandardOutput.ReadToEnd()
             // Find very annoyingly returns results such as:
             // C:\Users\joe\AppData\Local\Temp\pzltuf3d.fz3/sub dir2/Im_found
             // This is a behavior we intentionally do not mimic.
             .Replace('/', '\\')
-            .Trim()
-            .Split('\n');
+            .Trim();
 
-        var a = string.Join('\n', findOutput.OrderBy(t => t));
+        if (compareStdOut)
+        {
+            var rawProcessOutput = new StringWriter();
+            Program.Run(combinedArgs.ToArray(), rawProcessOutput);
+            Assert.AreEqual(rawGnuFindOutput, rawProcessOutput.ToString());
+            return;
+        }
+
+        var gnuFindOutput = rawGnuFindOutput.Split('\n');
+        var a = string.Join('\n', gnuFindOutput.OrderBy(t => t));
         var b = string.Join('\n', foundDefault.OrderBy(t => t));
 
-        CollectionAssert.AreEquivalent(findOutput, foundDefault, "Failed default engine test vs GNU find");
+        CollectionAssert.AreEquivalent(gnuFindOutput, foundDefault, "Failed default engine test vs GNU find");
     }
 
     [Test]
@@ -316,5 +342,18 @@ public class Tests
         using var referenceFile = TempFile.Create();
         File.SetLastWriteTimeUtc(referenceFile, DateTime.UtcNow - TimeSpan.FromMinutes(5));
         RunTest($"-anewer {referenceFile}", testfileset);
+    }
+
+    [Test]
+    public void TestPrint0()
+    {
+        const string foundItem = "Im_found";
+
+        RunTestStdoutCompared($"-name {foundItem} -print0",
+            FindTestPath.ExpectedFile("sub dir1", foundItem),
+            FindTestPath.File("sub dir1", "also filename"),
+            FindTestPath.ExpectedFile("sub dir2", foundItem),
+            FindTestPath.ExpectedFile(foundItem)
+        );
     }
 }

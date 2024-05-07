@@ -121,7 +121,7 @@ internal partial class NtDll
     // https://msdn.microsoft.com/en-us/library/windows/hardware/ff556633.aspx
     // https://msdn.microsoft.com/en-us/library/windows/hardware/ff567047.aspx
     [LibraryImport(Libraries.NtDll)]
-    public static unsafe partial int NtQueryDirectoryFile(
+    public static unsafe partial uint NtQueryDirectoryFile(
         IntPtr FileHandle,
         IntPtr Event,
         IntPtr ApcRoutine,

@@ -117,7 +117,7 @@ internal sealed class Find : IDisposable
             _availableWorkEvent.Set();
         }
 
-        // Main work loop. Exists when all work is completed.
+        // Main work loop. Exits when all work is completed.
         while (!_cts.IsCancellationRequested)
         {
             // Attempt to perform the cheaper dequeue first instead of a possible system call via

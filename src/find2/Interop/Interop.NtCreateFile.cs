@@ -243,13 +243,9 @@ internal static partial class NtDll
     {
         fixed (char* pathPtr = &MemoryMarshal.GetReference(path))
         {
-            var name = new UNICODE_STRING(
-                (IntPtr) pathPtr, checked((ushort)(path.Length * sizeof(char))));
+            var name = new UNICODE_STRING((IntPtr) pathPtr, checked((ushort)(path.Length * sizeof(char))));
 
-            var attributes = new OBJECT_ATTRIBUTES(
-                &name,
-                0,
-                rootDirectory);
+            var attributes = new OBJECT_ATTRIBUTES(&name, 0, rootDirectory);
 
             IntPtr handle;
             IO_STATUS_BLOCK ioStatusBlock;
