@@ -183,19 +183,19 @@ internal sealed class Find : IDisposable
                                 hasAddedSubdirs = true;
                                 dirsToCheck.Push(new QueuedDir
                                 {
-                                    Path = Path.Combine(path, entry.Name),
+                                    Path = entry.FullPath,
                                     Depth = dir.Depth + 1
                                 });
                             }
                             else
                             {
-                                subdirs.Add(Path.Combine(path, entry.Name));
+                                subdirs.Add(entry.FullPath);
                             }
                         }
 
                         if (match(entry) && minDepthCheckPasses)
                         {
-                            var fullPath = Path.Combine(path, entry.Name);
+                            var fullPath = entry.FullPath;
                             Matched?.Invoke(entry, fullPath);
                         }
 
