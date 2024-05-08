@@ -44,6 +44,7 @@ internal sealed class FindArguments
     public FollowSymbolicLinkBehavior FollowSymbolicLinkBehavior = FollowSymbolicLinkBehavior.Never;
     public DirectoryEngine DirectoryEngine;
     public bool Print0;
+    public PrintFPrinter? PrintFPrinter;
 
     // If null, all results should match.
     public MatchExpression Match = _ => true;
@@ -350,6 +351,9 @@ internal static class ExpressionMatch
                     break;
                 case "-empty":
                     AddExpression(IsEmpty());
+                    break;
+                case "-printf":
+                    findArguments.PrintFPrinter = new PrintFPrinter(arguments.GetValue());
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(arg), arg, $"Unknown argument \"{arg}\".");

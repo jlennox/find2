@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
 using NUnit.Framework;
 
 namespace find2.Tests;
@@ -36,6 +37,12 @@ public class Tests
     private static void RunTestStdoutCompared(string args, params FindTestPath[] files)
     {
         RunTest(args.Split(' '), true, files);
+    }
+
+
+    private static void RunTestStdoutCompared(string[] args, params FindTestPath[] files)
+    {
+        RunTest(args, true, files);
     }
 
     private static void RunTest(string args, params FindTestPath[] files)
@@ -80,10 +87,12 @@ public class Tests
             throw new Exception("Unable to locate GNU find.");
         }
 
+
+        var cliArguments = string.Join(' ', combinedArgs.Select(t => t.Contains(' ') ? $"\"{t}\"" : t));
         using var findProc = new Process {
             StartInfo = new ProcessStartInfo {
                 FileName = _gnuFindPath,
-                Arguments = string.Join(' ', combinedArgs),
+                Arguments = cliArguments,
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
             }
@@ -102,7 +111,15 @@ public class Tests
         {
             var rawProcessOutput = new StringWriter();
             Program.Run(combinedArgs.ToArray(), rawProcessOutput);
-            Assert.AreEqual(rawGnuFindOutput, rawProcessOutput.ToString());
+            var actual = rawProcessOutput.ToString().Trim();
+            if (rawGnuFindOutput != actual)
+            {
+                Console.Error.WriteLine("rawGnuFindOutput:");
+                Console.Error.WriteLine(rawGnuFindOutput);
+                Console.Error.WriteLine("\n\nactual:");
+                Console.Error.WriteLine(actual);
+            }
+            Assert.AreEqual(rawGnuFindOutput, actual);
             return;
         }
 
@@ -340,7 +357,7 @@ public class Tests
     }
 
     [Test]
-    public void TestPrint0()
+    public void Print0()
     {
         const string foundItem = "Im_found";
 
@@ -353,18 +370,38 @@ public class Tests
     }
 
     [Test]
-    public void TestEmpty()
+    public void Empty()
     {
         RunTest("-empty",
             FindTestPath.Dir(""),
             FindTestPath.Dir("sub dir1"),
             FindTestPath.Dir("sub dir2"),
             FindTestPath.ExpectedDir("an empty sub dir"),
-            FindTestPath.ExpectedFile(0, "sub dir1", "an empty dir"),
+            FindTestPath.ExpectedFile(0, "sub dir1", "an empty file"),
             FindTestPath.File(5, "sub dir1", "file with 5 bytes"),
             FindTestPath.File(6, "sub dir2", "file with 6 bytes"),
             FindTestPath.File(4, "file with 4 bytes"),
             FindTestPath.ExpectedFile(0, "another empty file")
+        );
+    }
+
+    [Test]
+    public void PrintF()
+    {
+        // FIXME: Arg. For some reason directories using GNU find report different access times.
+        // There's a bunch of things to test regarding time formatting. Single digit days of the
+        // month for example. Write out separate AsciiDateTime tests.
+        RunTestStdoutCompared(["-type", "f", "-printf", "%a %t foobar %p\\n"],
+            // FindTestPath.ExpectedDir(""),
+            FindTestPath.ExpectedFile(123123123, "some random file"),
+            FindTestPath.ExpectedFile("some random file 2")
+        );
+
+        // FIXME: Our %s returns 0 on directories, but that's not what GNU find does.
+        RunTestStdoutCompared(["-type", "f", "-printf", "%P %s\\n"],
+            // FindTestPath.ExpectedDir(""),
+            FindTestPath.ExpectedFile(123123123, "some random file"),
+            FindTestPath.ExpectedFile("some random file 2")
         );
     }
 }

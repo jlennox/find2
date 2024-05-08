@@ -29,12 +29,23 @@ internal sealed class Program
         // Keep in mind that Matched can be called from multiple threads.
         using var find = new Find(arguments);
         var terminator = arguments.Print0 ? '\0' : '\n';
-        find.Matched += (_, fullPath) =>
+        var printf = arguments.PrintFPrinter;
+
+        // This does what condition we can outside the Matched code for performance reasons.
+        if (printf == null)
         {
-            // TODO: TextWriter does this with 2 writes, but this requires atomic operations.
-            // We could test a ThreadLocal string buffer, would need to test the performance differences.
-            target.Write($"{fullPath}{terminator}");
-        };
+            find.Matched += (_, fullPath) =>
+            {
+                // TODO: TextWriter does this with 2 writes, but this requires atomic operations.
+                // We could test a ThreadLocal string buffer, would need to test the performance differences.
+                target.Write($"{fullPath}{terminator}");
+            };
+        }
+        else
+        {
+            find.Matched += (entry, _) => target.Write(printf.Format(entry));
+        }
+
         find.Run();
     }
 

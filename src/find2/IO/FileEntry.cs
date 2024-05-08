@@ -1,6 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Pipes;
+using System.Runtime.InteropServices;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using System.Threading;
 using find2.Interop;
 
@@ -14,6 +18,22 @@ internal interface IFileEntry
     public DateTime LastWriteTime { get; }
     public long Size { get; }
     public string FullPath { get; }
+
+    public string OwnerUsername
+    {
+        get
+        {
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                var security = new FileSecurity(FullPath, AccessControlSections.Owner);
+                var sid = security.GetOwner(typeof(SecurityIdentifier));
+                var account = sid.Translate(typeof(NTAccount));
+                return account.ToString();
+            }
+
+            return LibC.GetOnwerUsername(FullPath);
+        }
+    }
 
     public bool IsEmpty()
     {
@@ -35,11 +55,12 @@ internal sealed unsafe class WindowsFileEntry : IFileEntry
     public DateTime LastAccessTime { get; private set; }
     public DateTime LastWriteTime { get; private set; }
     public long Size { get; private set; }
+
     public string FullPath
     {
         get
         {
-            if (_fullPath == null) _fullPath = Path.Combine(_directory!, Name);
+            _fullPath ??= Path.Combine(_directory!, Name);
             return _fullPath;
         }
     }

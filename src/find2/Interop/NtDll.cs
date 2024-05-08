@@ -8,6 +8,7 @@ internal static class Libraries
 {
     internal const string Kernel32 = "kernel32.dll";
     internal const string NtDll = "ntdll.dll";
+    internal const string LibC = "libc";
 }
 
 internal struct LongFileTime
