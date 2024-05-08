@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.IO;
 
-namespace find2;
+namespace find2.IO;
 
 internal sealed class DotNetFileSearch : FileSearch
 {

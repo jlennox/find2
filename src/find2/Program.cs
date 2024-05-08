@@ -13,7 +13,7 @@ internal sealed class Program
         Run(args, Console.Out);
     }
 
-    public static void Run(string[] args, TextWriter target)
+    internal static void Run(string[] args, TextWriter target)
     {
         var arguments = ExpressionMatch.Build(args);
 
@@ -32,7 +32,7 @@ internal sealed class Program
         find.Matched += (_, fullPath) =>
         {
             // TODO: TextWriter does this with 2 writes, but this requires atomic operations.
-            // We could test ThreadLocal string buffer.
+            // We could test a ThreadLocal string buffer, would need to test the performance differences.
             target.Write($"{fullPath}{terminator}");
         };
         find.Run();

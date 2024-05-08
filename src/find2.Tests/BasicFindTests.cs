@@ -40,12 +40,7 @@ public class Tests
 
     private static void RunTest(string args, params FindTestPath[] files)
     {
-        RunTest(args.Split(' '), files);
-    }
-
-    private static void RunTest(string[] args, params FindTestPath[] files)
-    {
-        RunTest(args, false, files);
+        RunTest(args.Split(' '), false, files);
     }
 
     private static void RunTest(string[] args, bool compareStdOut, FindTestPath[] files)
@@ -57,7 +52,7 @@ public class Tests
         var combinedArgs = new List<string> { test.Root };
         combinedArgs.AddRange(args);
 
-        var find = new Find(ExpressionMatch.Build(combinedArgs.ToArray()));
+        using var find = new Find(ExpressionMatch.Build(combinedArgs.ToArray()));
         find.Matched += (_, fullPath) => {
             lock (foundDefault)
             {
@@ -68,7 +63,7 @@ public class Tests
 
         var engineArgs = new List<string> { "--engine", "dotnet" };
         engineArgs.AddRange(combinedArgs);
-        var findDotnet = new Find(ExpressionMatch.Build(engineArgs.ToArray()));
+        using var findDotnet = new Find(ExpressionMatch.Build(engineArgs.ToArray()));
         findDotnet.Matched += (_, fullPath) => {
             lock (foundDefault)
             {

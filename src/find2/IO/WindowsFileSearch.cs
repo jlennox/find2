@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using find2.Interop;
 
-namespace find2;
+namespace find2.IO;
 
 internal sealed class WindowsFileSearch : FileSearch
 {
@@ -33,10 +33,10 @@ internal sealed class WindowsFileSearchBuffer : IDisposable
     private static readonly int _pageSize = Environment.SystemPageSize * 2;
     private static readonly int _bufferSize = _pageSize * 100;
 
-    public IntPtr Buffer => _buffer;
+    public nint Buffer => _buffer;
     public int BufferSize => _usableBufferSize;
 
-    private IntPtr _buffer;
+    private nint _buffer;
     private int _usableBufferSize;
 
     public WindowsFileSearchBuffer()
@@ -62,9 +62,9 @@ internal sealed class WindowsFileSearchBuffer : IDisposable
 
     public void Dispose()
     {
-        var buffer = Interlocked.Exchange(ref _buffer, IntPtr.Zero);
+        var buffer = Interlocked.Exchange(ref _buffer, nint.Zero);
 
-        if (buffer != IntPtr.Zero)
+        if (buffer != nint.Zero)
         {
             Marshal.FreeHGlobal(buffer);
         }
@@ -73,7 +73,7 @@ internal sealed class WindowsFileSearchBuffer : IDisposable
 
 internal unsafe struct WindowsFileSearchEnumerator : IEnumerator<WindowsFileEntry>
 {
-    private IntPtr _handle;
+    private nint _handle;
     private readonly WindowsFileSearchBuffer _buffer;
     private bool _hasFinished;
     private FILE_DIRECTORY_INFORMATION* _current;
@@ -89,7 +89,7 @@ internal unsafe struct WindowsFileSearchEnumerator : IEnumerator<WindowsFileEntr
 
         buffer.Reset();
 
-        if (_handle == IntPtr.Zero)
+        if (_handle == nint.Zero)
         {
             Console.WriteLine("!!Error:" + directory);
         }
@@ -97,7 +97,7 @@ internal unsafe struct WindowsFileSearchEnumerator : IEnumerator<WindowsFileEntr
 
     public bool MoveNext()
     {
-        if (_handle == IntPtr.Zero || _hasFinished)
+        if (_handle == nint.Zero || _hasFinished)
         {
             return false;
         }
@@ -112,7 +112,7 @@ internal unsafe struct WindowsFileSearchEnumerator : IEnumerator<WindowsFileEntr
             _buffer.Increase();
 
             var status = NtDll.NtQueryDirectoryFile(
-                _handle, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero,
+                _handle, nint.Zero, nint.Zero, nint.Zero,
                 out _, _buffer.Buffer, (uint)_buffer.BufferSize,
                 FILE_INFORMATION_CLASS.FileDirectoryInformation,
                 BOOLEAN.FALSE, null, BOOLEAN.FALSE);
@@ -162,9 +162,9 @@ internal unsafe struct WindowsFileSearchEnumerator : IEnumerator<WindowsFileEntr
 
     public void Dispose()
     {
-        var handle = Interlocked.Exchange(ref _handle, IntPtr.Zero);
+        var handle = Interlocked.Exchange(ref _handle, nint.Zero);
 
-        if (handle != IntPtr.Zero)
+        if (handle != nint.Zero)
         {
             NtDll.CloseHandle(handle);
         }

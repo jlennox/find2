@@ -5,10 +5,9 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using find2.IO;
 using BinaryCheckExpression = System.Func<System.Linq.Expressions.Expression, System.Linq.Expressions.Expression, System.Linq.Expressions.BinaryExpression>;
-using MatchExpression = System.Func<find2.IFileEntry, bool>;
-
-#pragma warning disable CA2208 // Instantiate argument exceptions correctly
+using MatchExpression = System.Func<find2.IO.IFileEntry, bool>;
 
 namespace find2;
 
@@ -125,7 +124,7 @@ internal static class ExpressionMatch
             return findArguments;
         }
 
-        var arguments = new Arguments(args);
+        var arguments = new ArgumentsReader(args);
         var completed = false;
 
         while (!completed && (arg = arguments.Get()) != null)
@@ -196,7 +195,7 @@ internal static class ExpressionMatch
         // Simplify to avoid needing to handle this exceptional case.
         if (args[arguments.Index] == "(" && args[^1] == ")")
         {
-            arguments = new Arguments(args.Skip(1).Take(args.Length - 2).ToArray());
+            arguments = new ArgumentsReader(args.Skip(1).Take(args.Length - 2).ToArray());
         }
 
         Func<Expression, Expression>? wrappingExpression = null;

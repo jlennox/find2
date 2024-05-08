@@ -54,7 +54,7 @@ internal readonly struct FindFileSize
         Unit = unit;
     }
 
-    internal static int GetUnitMeasurement(char unitChar, ReadOnlySpan<char> input) => unitChar switch
+    private static int GetUnitMeasurement(char unitChar, ReadOnlySpan<char> input) => unitChar switch
     {
         'b' => 512,
         'c' => 1,

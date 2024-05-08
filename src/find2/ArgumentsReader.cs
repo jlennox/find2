@@ -3,18 +3,12 @@ using System.IO;
 
 namespace find2;
 
-internal sealed class Arguments
+internal sealed class ArgumentsReader(string[]? arguments)
 {
     public int Index { get; set; }
 
-    private readonly string[]? _arguments;
-
+    private readonly string[]? _arguments = arguments;
     private string? _arg;
-
-    public Arguments(string[]? arguments)
-    {
-        _arguments = arguments;
-    }
 
     public string? Get()
     {

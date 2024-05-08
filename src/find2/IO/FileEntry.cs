@@ -4,7 +4,7 @@ using System.IO;
 using System.Threading;
 using find2.Interop;
 
-namespace find2;
+namespace find2.IO;
 
 internal interface IFileEntry
 {

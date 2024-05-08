@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using find2.IO;
 using find2.Interop;
 
 namespace find2;
@@ -68,7 +69,7 @@ internal sealed class Find : IDisposable
             }
         }
 
-        // Special case this so the more complex code doesn't need to jump through hoops to support the oddity.
+        // This is special cased so the search code doesn't need to jump through hoops to support the oddity.
         if (_arguments.MaxDepth == 0) return;
 
         foreach (var thread in _threads)
