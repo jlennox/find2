@@ -31,9 +31,14 @@ internal class FindFileSizeTests
     [TestCase("zM")]
     [TestCase("1z")]
     [TestCase("=1M")]
-    [TestCase("")]
     public void InvalidInputExceptions(string input)
     {
-        Assert.Throws<Exception>(() => new FindFileSize(input));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new FindFileSize(input));
+    }
+
+    [TestCase("")]
+    public void NullInputExceptions(string input)
+    {
+        Assert.Throws<ArgumentNullException>(() => new FindFileSize(input));
     }
 }

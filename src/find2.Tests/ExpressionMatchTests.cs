@@ -11,6 +11,7 @@ public sealed class MemoryFileEntry : IFileEntry
     public DateTime LastAccessTime { get; init; }
     public DateTime LastWriteTime { get; init; }
     public long Size { get; init; }
+    public string FullPath { get; init; }
 }
 
 public class ExpressionMatchTests

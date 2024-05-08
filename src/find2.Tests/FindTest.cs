@@ -10,7 +10,7 @@ internal enum FindTestPathType
     File
 }
 
-internal struct FindTestPath
+internal readonly struct FindTestPath
 {
     public FindTestPathType FileType { get; init; }
     public string Path { get; init; }
@@ -100,7 +100,7 @@ internal sealed class FindTest : IDisposable
     }
 }
 
-internal struct TempFile : IDisposable
+internal readonly struct TempFile : IDisposable
 {
     public string Path { get; init; }
 
@@ -116,7 +116,7 @@ internal struct TempFile : IDisposable
         };
     }
 
-    public void Dispose()
+    public readonly void Dispose()
     {
         try
         {
@@ -125,5 +125,5 @@ internal struct TempFile : IDisposable
         catch { }
     }
 
-    public override string ToString() => Path;
+    public override readonly string ToString() => Path;
 }

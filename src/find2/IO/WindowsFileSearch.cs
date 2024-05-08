@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
 using find2.Interop;
@@ -78,6 +79,7 @@ internal unsafe struct WindowsFileSearchEnumerator : IEnumerator<WindowsFileEntr
     private bool _hasFinished;
     private FILE_DIRECTORY_INFORMATION* _current;
     private readonly WindowsFileEntry _entry;
+    private readonly string _directory;
 
     public WindowsFileSearchEnumerator(string directory, WindowsFileSearchBuffer buffer)
     {
@@ -86,11 +88,13 @@ internal unsafe struct WindowsFileSearchEnumerator : IEnumerator<WindowsFileEntr
         _hasFinished = false;
         _current = null;
         _entry = new WindowsFileEntry();
+        _directory = directory;
 
         buffer.Reset();
 
         if (_handle == nint.Zero)
         {
+            // TODO:
             Console.WriteLine("!!Error:" + directory);
         }
     }
@@ -153,7 +157,7 @@ internal unsafe struct WindowsFileSearchEnumerator : IEnumerator<WindowsFileEntr
         {
             if (_current == null) return default;
 
-            _entry.Set(_current);
+            _entry.Set(_directory, _current);
             return _entry;
         }
     }

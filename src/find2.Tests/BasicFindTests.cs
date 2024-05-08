@@ -351,4 +351,20 @@ public class Tests
             FindTestPath.ExpectedFile(foundItem)
         );
     }
+
+    [Test]
+    public void TestEmpty()
+    {
+        RunTest("-empty",
+            FindTestPath.Dir(""),
+            FindTestPath.Dir("sub dir1"),
+            FindTestPath.Dir("sub dir2"),
+            FindTestPath.ExpectedDir("an empty sub dir"),
+            FindTestPath.ExpectedFile(0, "sub dir1", "an empty dir"),
+            FindTestPath.File(5, "sub dir1", "file with 5 bytes"),
+            FindTestPath.File(6, "sub dir2", "file with 6 bytes"),
+            FindTestPath.File(4, "file with 4 bytes"),
+            FindTestPath.ExpectedFile(0, "another empty file")
+        );
+    }
 }

@@ -100,7 +100,7 @@ internal static class ExpressionMatch
         "-type", "-size", "-maxdepth", "-mindepth",
         "-mmin", "-newer", "-amin", "-anewer",
         "(", ")", "-true", "-false", "-not", "!", "-or", "-o", "-and", "-a",
-        "-print0",
+        "-print0", "-empty",
     };
 
     private static PropertyInfo GetProperty<T>(string name)
@@ -109,9 +109,20 @@ internal static class ExpressionMatch
             ?? throw new ArgumentException($"Unable to locate \"{name}\" property on {nameof(T)}.");
     }
 
+    private static MethodInfo GetMethod<T>(string name)
+    {
+        return typeof(T).GetMethod(name, BindingFlags.Instance | BindingFlags.Public)
+            ?? throw new ArgumentException($"Unable to locate \"{name}\" method on {nameof(T)}.");
+    }
+
     private static MemberExpression GetPropertyAccess<T>(string name)
     {
         return Expression.MakeMemberAccess(_parameter, GetProperty<T>(name));
+    }
+
+    private static MethodCallExpression GetMethodAccess<T>(string name)
+    {
+        return Expression.Call(_parameter, GetMethod<T>(name));
     }
 
     public static FindArguments Build(params string[]? args)
@@ -337,6 +348,9 @@ internal static class ExpressionMatch
                 case "-print0":
                     findArguments.Print0 = true;
                     break;
+                case "-empty":
+                    AddExpression(IsEmpty());
+                    break;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(arg), arg, $"Unknown argument \"{arg}\".");
             }
@@ -353,6 +367,12 @@ internal static class ExpressionMatch
         findArguments.ExpressionDescription = expression == null ? "*" : expression.ToString();
 
         return findArguments;
+    }
+
+    internal static Expression IsEmpty()
+    {
+        var method = GetMethod<IFileEntry>(nameof(IFileEntry.IsEmpty));
+        return Expression.IsTrue(Expression.Call(_parameter, method));
     }
 
     internal static Expression NameBlob(string match, bool caseInsensitive, out string? matchType)
