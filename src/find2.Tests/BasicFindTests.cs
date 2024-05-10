@@ -38,10 +38,14 @@ public class Tests
         RunTest(args.Split(' '), true, files);
     }
 
-
     private static void RunTestStdoutCompared(string[] args, params FindTestPath[] files)
     {
         RunTest(args, true, files);
+    }
+
+    private static void RunTest(string[] args, params FindTestPath[] files)
+    {
+        RunTest(args, false, files);
     }
 
     private static void RunTest(string args, params FindTestPath[] files)
@@ -52,31 +56,32 @@ public class Tests
     private static void RunTest(string[] args, bool compareStdOut, FindTestPath[] files)
     {
         using var test = new FindTest(files);
-        var foundDefault = new List<string>();
-        var foundDotnet = new List<string>();
 
         var combinedArgs = new List<string> { test.Root };
         combinedArgs.AddRange(args);
 
-        using var find = new Find(ExpressionMatch.Build(combinedArgs.ToArray()));
-        find.Matched += (_, fullPath) => {
-            lock (foundDefault)
+        string[] GetResults(string? engine)
+        {
+            var findArgs = new List<string>();
+            if (engine != null)
             {
-                foundDefault.Add(fullPath);
+                findArgs.AddRange(["--engine", engine]);
             }
-        };
-        find.Run();
+            findArgs.AddRange(combinedArgs);
+            var findResults = new List<string>();
+            using var findDotnet = new Find(ExpressionMatch.Build(findArgs.ToArray()));
+            findDotnet.Matched += (_, fullPath) => {
+                lock (findResults)
+                {
+                    findResults.Add(fullPath);
+                }
+            };
+            findDotnet.Run();
+            return findResults.ToArray();
+        }
 
-        var engineArgs = new List<string> { "--engine", "dotnet" };
-        engineArgs.AddRange(combinedArgs);
-        using var findDotnet = new Find(ExpressionMatch.Build(engineArgs.ToArray()));
-        findDotnet.Matched += (_, fullPath) => {
-            lock (foundDefault)
-            {
-                foundDotnet.Add(fullPath);
-            }
-        };
-        findDotnet.Run();
+        var foundDefault = GetResults(null);
+        var foundDotnet = GetResults("dotnet");
 
         CollectionAssert.AreEquivalent(test.Expected, foundDefault, "Failed default engine test vs expectations");
         CollectionAssert.AreEquivalent(test.Expected, foundDotnet, "Failed dotnet engine test vs expectations");
@@ -85,7 +90,6 @@ public class Tests
         {
             throw new Exception("Unable to locate GNU find.");
         }
-
 
         var cliArguments = string.Join(' ', combinedArgs.Select(t => t.Contains(' ') ? $"\"{t}\"" : t));
         using var findProc = new Process {
@@ -129,13 +133,13 @@ public class Tests
         CollectionAssert.AreEquivalent(gnuFindOutput, foundDefault, "Failed default engine test vs GNU find");
     }
 
+    private const string _foundItem = "Im_Found";
+
     [Test]
     public void TestSingleItemAtRootIsFound()
     {
-        const string foundItem = "Im_found";
-
-        RunTest($"-name {foundItem}",
-            FindTestPath.ExpectedFile(foundItem),
+        RunTest($"-name {_foundItem}",
+            FindTestPath.ExpectedFile(_foundItem),
             FindTestPath.File("Im not found")
         );
     }
@@ -143,55 +147,83 @@ public class Tests
     [Test]
     public void TestMultipleItemsWithSomeDepth()
     {
-        const string foundItem = "Im_found";
-
-        RunTest($"-name {foundItem}",
-            FindTestPath.ExpectedFile("sub dir1", foundItem),
+        RunTest($"-name {_foundItem}",
+            FindTestPath.ExpectedFile("sub dir1", _foundItem),
             FindTestPath.File("sub dir1", "also filename"),
-            FindTestPath.ExpectedFile("sub dir2", foundItem),
-            FindTestPath.ExpectedFile(foundItem)
+            FindTestPath.ExpectedFile("sub dir2", _foundItem),
+            FindTestPath.ExpectedFile(_foundItem)
+        );
+    }
+
+    [Test]
+    [TestCase("-name", _foundItem)]
+    [TestCase("-name", "*Found")]
+    [TestCase("-name", "Im*")]
+    [TestCase("-name", "Im_*Found")]
+    [TestCase("-name", "Im*und")]
+    [TestCase("-iname", "im*und")]
+    [TestCase("-regex", ".*Im.*und")]
+    [TestCase("-regex", ".*Im...und")]
+    [TestCase("-iregex", ".*im...und")]
+    public void TestNamePatterns(string command, string pattern)
+    {
+        RunTest([command, pattern],
+            FindTestPath.ExpectedFile("sub dir1", _foundItem),
+            FindTestPath.File("sub dir1", "also filename"),
+            FindTestPath.ExpectedFile("sub dir2", _foundItem),
+            FindTestPath.ExpectedFile(_foundItem)
+        );
+    }
+
+    [TestCase("-path", "*sub dir1*")]
+    [TestCase("-ipath", "*sub DIR1*")]
+    public void TestPathPatterns(string command, string pattern)
+    {
+        RunTest([command, pattern],
+            FindTestPath.ExpectedDir("sub dir1"),
+            FindTestPath.ExpectedFile("sub dir1", _foundItem),
+            FindTestPath.ExpectedFile("sub dir1", "also filename"),
+            FindTestPath.Dir("sub dir2"),
+            FindTestPath.File("sub dir2", _foundItem),
+            FindTestPath.File(_foundItem)
         );
     }
 
     [Test]
     public void EmptyRecursivelyReturnsAllFiles()
     {
-        const string foundItem = "Im_found";
-
         RunTest($"",
             FindTestPath.ExpectedDir(""),
             FindTestPath.ExpectedDir("sub dir1"),
             FindTestPath.ExpectedDir("sub dir2"),
-            FindTestPath.ExpectedFile("sub dir1", foundItem),
+            FindTestPath.ExpectedFile("sub dir1", _foundItem),
             FindTestPath.ExpectedFile("sub dir1", "also filename"),
-            FindTestPath.ExpectedFile("sub dir2", foundItem),
-            FindTestPath.ExpectedFile(foundItem)
+            FindTestPath.ExpectedFile("sub dir2", _foundItem),
+            FindTestPath.ExpectedFile(_foundItem)
         );
     }
 
     [Test]
     public void TypeCanDetectDirectoriesVsFiles()
     {
-        const string foundItem = "Im_found";
-
         RunTest("-type d",
             FindTestPath.ExpectedDir(""),
             FindTestPath.ExpectedDir("sub dir1"),
             FindTestPath.ExpectedDir("sub dir2"),
-            FindTestPath.File("sub dir1", foundItem),
+            FindTestPath.File("sub dir1", _foundItem),
             FindTestPath.File("sub dir1", "also filename"),
-            FindTestPath.File("sub dir2", foundItem),
-            FindTestPath.File(foundItem)
+            FindTestPath.File("sub dir2", _foundItem),
+            FindTestPath.File(_foundItem)
         );
 
         RunTest("-type f",
             FindTestPath.Dir(""),
             FindTestPath.Dir("sub dir1"),
             FindTestPath.Dir("sub dir2"),
-            FindTestPath.ExpectedFile("sub dir1", foundItem),
+            FindTestPath.ExpectedFile("sub dir1", _foundItem),
             FindTestPath.ExpectedFile("sub dir1", "also filename"),
-            FindTestPath.ExpectedFile("sub dir2", foundItem),
-            FindTestPath.ExpectedFile(foundItem)
+            FindTestPath.ExpectedFile("sub dir2", _foundItem),
+            FindTestPath.ExpectedFile(_foundItem)
         );
     }
 
@@ -358,13 +390,11 @@ public class Tests
     [Test]
     public void Print0()
     {
-        const string foundItem = "Im_found";
-
-        RunTestStdoutCompared($"-name {foundItem} -print0",
-            FindTestPath.ExpectedFile("sub dir1", foundItem),
+        RunTestStdoutCompared($"-name {_foundItem} -print0",
+            FindTestPath.ExpectedFile("sub dir1", _foundItem),
             FindTestPath.File("sub dir1", "also filename"),
-            FindTestPath.ExpectedFile("sub dir2", foundItem),
-            FindTestPath.ExpectedFile(foundItem)
+            FindTestPath.ExpectedFile("sub dir2", _foundItem),
+            FindTestPath.ExpectedFile(_foundItem)
         );
     }
 

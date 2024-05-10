@@ -75,6 +75,7 @@ internal static class ExpressionMatch
     // TODO: If it removes a call.virt, make these IFileEntry dynamically reference the used implementation type.
     private static readonly ParameterExpression _parameter = Expression.Parameter(typeof(IFileEntry), "file");
     private static readonly MemberExpression _nameField = GetPropertyAccess<IFileEntry>(nameof(IFileEntry.Name));
+    private static readonly MemberExpression _fullPathField = GetPropertyAccess<IFileEntry>(nameof(IFileEntry.FullPath));
     private static readonly MemberExpression _isDirectoryField = GetPropertyAccess<IFileEntry>(nameof(IFileEntry.IsDirectory));
 
     private static readonly IReadOnlyDictionary<string, DebugOptions> _debugOptionLookup = new Dictionary<string, DebugOptions>
@@ -97,7 +98,7 @@ internal static class ExpressionMatch
 
     // Not the biggest fan of this.
     private static readonly IReadOnlySet<string> _matchOptions = new HashSet<string> {
-        "-name", "-iname", "-regex", "-iregex",
+        "-name", "-iname", "-path", "-ipath", "-regex", "-iregex",
         "-type", "-size", "-maxdepth", "-mindepth",
         "-mmin", "-newer", "-amin", "-anewer",
         "(", ")", "-true", "-false", "-not", "!", "-or", "-o", "-and", "-a",
@@ -261,16 +262,22 @@ internal static class ExpressionMatch
                     }
                     break;
                 case "-name":
-                    AddExpression(NameBlob(arguments.GetValue(), false, out _));
+                    AddExpression(BlobMatch(_nameField, arguments.GetValue(), false, out _));
                     break;
                 case "-iname":
-                    AddExpression(NameBlob(arguments.GetValue(), true, out _));
+                    AddExpression(BlobMatch(_nameField, arguments.GetValue(), true, out _));
+                    break;
+                case "-path":
+                    AddExpression(BlobMatch(_fullPathField, arguments.GetValue(), false, out _));
+                    break;
+                case "-ipath":
+                    AddExpression(BlobMatch(_fullPathField, arguments.GetValue(), true, out _));
                     break;
                 case "-regex":
-                    AddExpression(NameRegex(arguments.GetValue(), false));
+                    AddExpression(RegexMatch(_nameField, arguments.GetValue(), false, true));
                     break;
                 case "-iregex":
-                    AddExpression(NameRegex(arguments.GetValue(), true));
+                    AddExpression(RegexMatch(_nameField, arguments.GetValue(), true, true));
                     break;
                 case "-true":
                     AddExpression(Expression.Constant(true));
@@ -379,62 +386,62 @@ internal static class ExpressionMatch
         return Expression.IsTrue(Expression.Call(_parameter, method));
     }
 
-    internal static Expression NameBlob(string match, bool caseInsensitive, out string? matchType)
+    internal static Expression BlobMatch(MemberExpression field, string pattern, bool caseInsensitive, out string? matchType)
     {
-        if (match.Length == 0 || match == "*")
+        if (pattern.Length == 0 || pattern == "*")
         {
             matchType = null;
             return Expression.IsTrue(Expression.Constant(true));
         }
 
-        var startBlob = match[0] == '*';
-        var endBlob = match[^1] == '*';
-        var globPos = match.IndexOf('*', 1);
-        var hasCenterBlobs = globPos != -1 && globPos != match.Length - 1;
+        var startBlob = pattern[0] == '*';
+        var endBlob = pattern[^1] == '*';
+        var globPos = pattern.IndexOf('*', 1);
+        var hasCenterBlobs = globPos != -1 && globPos != pattern.Length - 1;
 
         // "foo*bar"
         if (hasCenterBlobs)
         {
-            var blobExp = "^" + Regex.Escape(match).Replace(@"\*", ".*").Replace(@"\?", ".") + "$";
-            matchType = nameof(NameRegex);
-            return NameRegex(blobExp, caseInsensitive);
+            var blobExp = Regex.Escape(pattern).Replace(@"\*", ".*").Replace(@"\?", ".");
+            matchType = nameof(RegexMatch);
+            return RegexMatch(field, blobExp, caseInsensitive, true);
         }
 
         switch (startBlob, endBlob)
         {
             case (true, true): // "*foobar*"
                 matchType = nameof(NameContains);
-                return NameContains(match[1..^1], caseInsensitive);
+                return NameContains(field, pattern[1..^1], caseInsensitive);
             case (true, false): // "*foo"
                 matchType = nameof(NameEndsWith);
-                return NameEndsWith(match[1..], caseInsensitive);
+                return NameEndsWith(field, pattern[1..], caseInsensitive);
             case (false, true): // "foo*"
                 matchType = nameof(NameStartsWith);
-                return NameStartsWith(match[..^1], caseInsensitive);
+                return NameStartsWith(field, pattern[..^1], caseInsensitive);
             case (false, false): // "foo"
                 matchType = nameof(NameEquals);
-                return NameEquals(match, caseInsensitive);
+                return NameEquals(field, pattern, caseInsensitive);
         }
     }
 
-    internal static MethodCallExpression NameStartsWith(string match, bool caseInsensitive)
+    internal static MethodCallExpression NameStartsWith(MemberExpression field, string pattern, bool caseInsensitive)
     {
-        return StringComparisonMethod(nameof(string.StartsWith), match, caseInsensitive);
+        return StringComparisonMethod(field, nameof(string.StartsWith), pattern, caseInsensitive);
     }
 
-    internal static MethodCallExpression NameEndsWith(string match, bool caseInsensitive)
+    internal static MethodCallExpression NameEndsWith(MemberExpression field, string pattern, bool caseInsensitive)
     {
-        return StringComparisonMethod(nameof(string.EndsWith), match, caseInsensitive);
+        return StringComparisonMethod(field, nameof(string.EndsWith), pattern, caseInsensitive);
     }
 
-    internal static MethodCallExpression NameContains(string match, bool caseInsensitive)
+    internal static MethodCallExpression NameContains(MemberExpression field, string pattern, bool caseInsensitive)
     {
-        return StringComparisonMethod(nameof(string.Contains), match, caseInsensitive);
+        return StringComparisonMethod(field, nameof(string.Contains), pattern, caseInsensitive);
     }
 
-    internal static MethodCallExpression NameEquals(string match, bool caseInsensitive)
+    internal static MethodCallExpression NameEquals(MemberExpression field, string pattern, bool caseInsensitive)
     {
-        return StringComparisonMethod(nameof(string.Equals), match, caseInsensitive);
+        return StringComparisonMethod(field, nameof(string.Equals), pattern, caseInsensitive);
     }
 
     internal static Expression IsDirectory(bool shouldBe)
@@ -486,10 +493,16 @@ internal static class ExpressionMatch
         return check(field, Expression.Constant(datetime));
     }
 
-    internal static MethodCallExpression NameRegex(string match, bool caseInsensitive)
+    internal static MethodCallExpression RegexMatch(
+        MemberExpression field, string pattern, bool caseInsensitive, bool matchFullString)
     {
+        if (matchFullString)
+        {
+            pattern = "^" + pattern + "$";
+        }
+
         var regexOptions = RegexOptions.Compiled | (caseInsensitive ? RegexOptions.IgnoreCase : RegexOptions.None);
-        var exp = new Regex(match, regexOptions);
+        var exp = new Regex(pattern, regexOptions);
 
         var isMatchMethod = typeof(Regex).GetMethod(nameof(Regex.IsMatch), [typeof(string)], null);
         if (isMatchMethod == null)
@@ -499,10 +512,11 @@ internal static class ExpressionMatch
                 "Unable to locate method.");
         }
 
-        return Expression.Call(Expression.Constant(exp), isMatchMethod, _nameField);
+        return Expression.Call(Expression.Constant(exp), isMatchMethod, field);
     }
 
-    private static MethodCallExpression StringComparisonMethod(string method, string match, bool caseInsensitive)
+    private static MethodCallExpression StringComparisonMethod(
+        MemberExpression field, string method, string pattern, bool caseInsensitive)
     {
         var methodInfo = typeof(string).GetMethod(method, [typeof(string), typeof(StringComparison)], null);
         if (methodInfo == null)
@@ -515,7 +529,7 @@ internal static class ExpressionMatch
             : StringComparison.CurrentCulture;
 
         return Expression.Call(
-            _nameField, methodInfo,
-            Expression.Constant(match), Expression.Constant(comparison));
+            field, methodInfo,
+            Expression.Constant(pattern), Expression.Constant(comparison));
     }
 }

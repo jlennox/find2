@@ -1,4 +1,7 @@
 ﻿using System;
+using System.Linq.Expressions;
+using System.Reflection;
+using System.Xml.Linq;
 using find2.IO;
 using NUnit.Framework;
 
@@ -90,13 +93,16 @@ public class ExpressionMatchTests
     [TestCase("foobar*", nameof(ExpressionMatch.NameStartsWith))]
     [TestCase("*foobar", nameof(ExpressionMatch.NameEndsWith))]
     [TestCase("*foobar*", nameof(ExpressionMatch.NameContains))]
-    [TestCase("foo*bar", nameof(ExpressionMatch.NameRegex))]
-    [TestCase("*foo*bar*", nameof(ExpressionMatch.NameRegex))]
-    [TestCase("*foo*bar", nameof(ExpressionMatch.NameRegex))]
-    [TestCase("foo*bar*", nameof(ExpressionMatch.NameRegex))]
+    [TestCase("foo*bar", nameof(ExpressionMatch.RegexMatch))]
+    [TestCase("*foo*bar*", nameof(ExpressionMatch.RegexMatch))]
+    [TestCase("*foo*bar", nameof(ExpressionMatch.RegexMatch))]
+    [TestCase("foo*bar*", nameof(ExpressionMatch.RegexMatch))]
     public void CorrectMatchMethod(string match, string expectedMethod)
     {
-        ExpressionMatch.NameBlob(match, false, out var actualMethod);
+        var method = typeof(IFileEntry).GetProperty(nameof(IFileEntry.Name), BindingFlags.Instance | BindingFlags.Public);
+        var parameter = Expression.Parameter(typeof(IFileEntry), "file");
+        var field = Expression.MakeMemberAccess(parameter, method);
+        ExpressionMatch.BlobMatch(field, match, false, out var actualMethod);
         Assert.AreEqual(expectedMethod, actualMethod);
     }
 

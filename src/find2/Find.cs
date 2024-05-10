@@ -7,6 +7,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using find2.IO;
 using find2.Interop;
+using System.Diagnostics;
 
 namespace find2;
 
@@ -80,9 +81,11 @@ internal sealed class Find : IDisposable
         _noWorkSignal.WaitOne();
         _cts.Cancel();
 
+        // This could otherwise potentially prevent debugging.
+        var joinTimeout = Debugger.IsAttached ? TimeSpan.FromDays(10) : TimeSpan.FromSeconds(10);
         foreach (var thread in _threads)
         {
-            if (!thread.Join(TimeSpan.FromSeconds(10)))
+            if (!thread.Join(joinTimeout))
             {
                 throw new Exception("Was unable to join thread. This is a code bug.");
             }
@@ -195,8 +198,7 @@ internal sealed class Find : IDisposable
 
                         if (match(entry) && minDepthCheckPasses)
                         {
-                            var fullPath = entry.FullPath;
-                            Matched?.Invoke(entry, fullPath);
+                            Matched?.Invoke(entry, entry.FullPath);
                         }
 
                         // This code is weird and needs proof that it's doing anything productive.
