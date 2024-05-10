@@ -17,13 +17,13 @@ internal sealed class DotNetFileSearch : FileSearch
         var fileEntry = new DotnetFileEntry();
         foreach (var entry in Directory.GetFiles(directory))
         {
-            fileEntry.Set(Path.Combine(directory, entry), false);
+            fileEntry.Set(entry, false);
             yield return fileEntry;
         }
 
         foreach (var entry in Directory.GetDirectories(directory))
         {
-            fileEntry.Set(Path.Combine(directory, entry), true);
+            fileEntry.Set(entry, true);
             yield return fileEntry;
         }
     }

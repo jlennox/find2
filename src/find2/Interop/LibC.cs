@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace find2.Interop;
@@ -14,14 +13,15 @@ internal struct Stat
     public uint st_uid;      // User ID of owner
     public uint st_gid;      // Group ID of owner
     public ulong st_rdev;    // Device ID (if special file)
+    public long __pad1;
     public long st_size;     // Total size, in bytes
     public uint st_blksize;  // Block size for filesystem I/O
+    public int __pad2;
     public long st_blocks;   // Number of 512B blocks allocated
     public StatTimespec st_atim; // Last access time
     public StatTimespec st_mtim; // Last modification time
     public StatTimespec st_ctim; // Last status change time
-    public long reserved; // FIXME: This is a hack. For some reason my struct is 16 bytes too small?!
-    public long reserved2; // FIXME: hack.
+    public int __pad3;
 }
 
 [StructLayout(LayoutKind.Sequential)]
@@ -51,7 +51,13 @@ internal static unsafe partial class LibC
     [LibraryImport(Libraries.LibC, SetLastError = true)]
     private static partial Passwd* getpwuid(uint uid);
 
-    public static string? GetOnwerUsername(string fullpath)
+    static LibC()
+    {
+        if (sizeof(Stat) != 128) throw new InvalidProgramException($"{nameof(Stat)} does not align to expectations. Got {sizeof(Stat)}.");
+    }
+
+    // TODO: Exception or return null?
+    public static int? GetOwnerUserId(string fullpath)
     {
         if (stat(fullpath, out var stats) != 0)
         {
@@ -59,8 +65,16 @@ internal static unsafe partial class LibC
             return null;
         }
 
-        var passwdPtr = getpwuid(stats.st_uid);
-        if (new IntPtr(passwdPtr) == IntPtr.Zero || new IntPtr(passwdPtr->pw_name) == IntPtr.Zero)
+        return (int)stats.st_uid;
+    }
+
+    public static string? GetOnwerUsername(string fullpath)
+    {
+        var ownerId = GetOwnerUserId(fullpath);
+        if (ownerId == null) return null;
+
+        var passwdPtr = getpwuid((uint)ownerId);
+        if (new IntPtr(passwdPtr) == IntPtr.Zero || passwdPtr->pw_name == IntPtr.Zero)
         {
             // throw new Exception($"Error getting owner info'{fullpath}'.");
             return null;

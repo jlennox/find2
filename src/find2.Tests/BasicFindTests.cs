@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text;
 using NUnit.Framework;
 
 namespace find2.Tests;
@@ -386,21 +385,23 @@ public class Tests
     }
 
     [Test]
-    public void PrintF()
+    // FIXME: Arg. For some reason directories using GNU find report different access times.
+    // There's a bunch of things to test regarding time formatting. Single digit days of the
+    // month for example. Write out separate AsciiDateTime tests.
+    [TestCase("%a %t %p\\n")]
+    // FIXME: Our %s returns 0 on directories, but that's not what GNU find does.
+    [TestCase("%P %p %s\\n")]
+    [TestCase("%u %U\\n")]
+    [TestCase("%u %U\\n")]
+    [TestCase(@"123:\123 10:\10 50:\50 73:\73\n")]
+    [TestCase(@"should print S44: \12344")]
+    [TestCase("\\a\\b\\f\\n\\r\\t\\v\\\\")]
+    public void PrintF(string format)
     {
-        // FIXME: Arg. For some reason directories using GNU find report different access times.
-        // There's a bunch of things to test regarding time formatting. Single digit days of the
-        // month for example. Write out separate AsciiDateTime tests.
-        RunTestStdoutCompared(["-type", "f", "-printf", "%a %t foobar %p\\n"],
+        RunTestStdoutCompared(["-type", "f", "-printf", format],
             // FindTestPath.ExpectedDir(""),
             FindTestPath.ExpectedFile(123123123, "some random file"),
-            FindTestPath.ExpectedFile("some random file 2")
-        );
-
-        // FIXME: Our %s returns 0 on directories, but that's not what GNU find does.
-        RunTestStdoutCompared(["-type", "f", "-printf", "%P %s\\n"],
-            // FindTestPath.ExpectedDir(""),
-            FindTestPath.ExpectedFile(123123123, "some random file"),
+            FindTestPath.ExpectedFile(20, "another random file"),
             FindTestPath.ExpectedFile("some random file 2")
         );
     }
