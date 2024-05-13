@@ -112,17 +112,24 @@ public class Tests
 
         if (compareStdOut)
         {
-            var rawProcessOutput = new StringWriter();
-            Program.Run(combinedArgs.ToArray(), rawProcessOutput);
-            var actual = rawProcessOutput.ToString().Trim();
-            if (rawGnuFindOutput != actual)
+            void CompareOutput(IEnumerable<string> args)
             {
-                Console.Error.WriteLine("rawGnuFindOutput:");
-                Console.Error.WriteLine(rawGnuFindOutput);
-                Console.Error.WriteLine("\n\nactual:");
-                Console.Error.WriteLine(actual);
+                var rawProcessOutput = new StringWriter();
+                Program.Run(combinedArgs.ToArray(), rawProcessOutput);
+                var output = rawProcessOutput.ToString().Trim();
+                if (rawGnuFindOutput != output)
+                {
+                    Console.Error.WriteLine("rawGnuFindOutput:");
+                    Console.Error.WriteLine(rawGnuFindOutput);
+                    Console.Error.WriteLine($"\n\nactual ({string.Join(" ", args)}):");
+                    Console.Error.WriteLine(output);
+                }
+                Assert.AreEqual(rawGnuFindOutput, output);
             }
-            Assert.AreEqual(rawGnuFindOutput, actual);
+
+            CompareOutput(combinedArgs);
+            CompareOutput(["--engine", "dotnet", ..combinedArgs]);
+
             return;
         }
 
@@ -434,5 +441,28 @@ public class Tests
             FindTestPath.ExpectedFile(20, "another random file"),
             FindTestPath.ExpectedFile("some random file 2")
         );
+    }
+
+    [Test]
+    [TestCase("HIklM")]
+    [TestCase("prST+X")]
+    // TODO: Fix this case.
+    // [TestCase("Z")]
+    [TestCase("aAbBc")]
+    [TestCase("dDFhj")]
+    [TestCase("mUwW")]
+    [TestCase("xyY")]
+    public void PrintFDateTimes(string directives)
+    {
+        foreach (var command in "ABCT")
+        {
+            var formatString = string.Join(' ', directives.Select(t => $"{command}{t}:%{command}{t}"));
+            RunTestStdoutCompared(["-type", "f", "-printf", formatString],
+                // FindTestPath.ExpectedDir(""),
+                FindTestPath.ExpectedFile(123123123, "some random file"),
+                FindTestPath.ExpectedFile(20, "another random file"),
+                FindTestPath.ExpectedFile("some random file 2")
+            );
+        }
     }
 }

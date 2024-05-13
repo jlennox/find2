@@ -410,36 +410,36 @@ internal static class ExpressionMatch
         switch (startBlob, endBlob)
         {
             case (true, true): // "*foobar*"
-                matchType = nameof(NameContains);
-                return NameContains(field, pattern[1..^1], caseInsensitive);
+                matchType = nameof(ContainsMatch);
+                return ContainsMatch(field, pattern[1..^1], caseInsensitive);
             case (true, false): // "*foo"
-                matchType = nameof(NameEndsWith);
-                return NameEndsWith(field, pattern[1..], caseInsensitive);
+                matchType = nameof(EndsWithMatch);
+                return EndsWithMatch(field, pattern[1..], caseInsensitive);
             case (false, true): // "foo*"
-                matchType = nameof(NameStartsWith);
-                return NameStartsWith(field, pattern[..^1], caseInsensitive);
+                matchType = nameof(StartsWithMatch);
+                return StartsWithMatch(field, pattern[..^1], caseInsensitive);
             case (false, false): // "foo"
-                matchType = nameof(NameEquals);
-                return NameEquals(field, pattern, caseInsensitive);
+                matchType = nameof(EqualsMatch);
+                return EqualsMatch(field, pattern, caseInsensitive);
         }
     }
 
-    internal static MethodCallExpression NameStartsWith(MemberExpression field, string pattern, bool caseInsensitive)
+    internal static MethodCallExpression StartsWithMatch(MemberExpression field, string pattern, bool caseInsensitive)
     {
         return StringComparisonMethod(field, nameof(string.StartsWith), pattern, caseInsensitive);
     }
 
-    internal static MethodCallExpression NameEndsWith(MemberExpression field, string pattern, bool caseInsensitive)
+    internal static MethodCallExpression EndsWithMatch(MemberExpression field, string pattern, bool caseInsensitive)
     {
         return StringComparisonMethod(field, nameof(string.EndsWith), pattern, caseInsensitive);
     }
 
-    internal static MethodCallExpression NameContains(MemberExpression field, string pattern, bool caseInsensitive)
+    internal static MethodCallExpression ContainsMatch(MemberExpression field, string pattern, bool caseInsensitive)
     {
         return StringComparisonMethod(field, nameof(string.Contains), pattern, caseInsensitive);
     }
 
-    internal static MethodCallExpression NameEquals(MemberExpression field, string pattern, bool caseInsensitive)
+    internal static MethodCallExpression EqualsMatch(MemberExpression field, string pattern, bool caseInsensitive)
     {
         return StringComparisonMethod(field, nameof(string.Equals), pattern, caseInsensitive);
     }

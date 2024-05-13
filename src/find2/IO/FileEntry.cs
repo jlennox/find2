@@ -12,6 +12,8 @@ internal interface IFileEntry
     public string Name { get; }
     public DateTime LastAccessTime { get; }
     public DateTime LastWriteTime { get; }
+    public DateTime CreationTime { get; }
+    public DateTime ChangeTime { get; }
     public long Size { get; }
     public string FullPath { get; }
 
@@ -42,6 +44,8 @@ internal sealed unsafe class WindowsFileEntry : IFileEntry
     public string Name { get; private set; }
     public DateTime LastAccessTime { get; private set; }
     public DateTime LastWriteTime { get; private set; }
+    public DateTime CreationTime { get; private set; }
+    public DateTime ChangeTime { get; private set; }
     public long Size { get; private set; }
 
     public string FullPath { get => _fullPath ??= Path.Combine(_directory!, Name); }
@@ -56,6 +60,8 @@ internal sealed unsafe class WindowsFileEntry : IFileEntry
         IsDirectory = (entry->FileAttributes & FileAttributes.Directory) != 0;
         LastAccessTime = entry->LastAccessTime.ToDateTime();
         LastWriteTime = entry->LastWriteTime.ToDateTime();
+        CreationTime = entry->CreationTime.ToDateTime();
+        ChangeTime = entry->ChangeTime.ToDateTime();
         Size = entry->EndOfFile;
         _fullPath = null;
         _directory = directory;
@@ -68,6 +74,9 @@ internal sealed class DotnetFileEntry : IFileEntry
     public string Name { get; private set; }
     public DateTime LastAccessTime => _fileInfo.Value.LastAccessTimeUtc;
     public DateTime LastWriteTime => _fileInfo.Value.LastWriteTimeUtc;
+    public DateTime CreationTime => _fileInfo.Value.CreationTimeUtc;
+    // HACK: Arg... there's no dotnet method of reading last change time.
+    public DateTime ChangeTime => _fileInfo.Value.LastWriteTimeUtc;
     public long Size => IsDirectory ? 0 : _fileInfo.Value.Length;
     public string FullPath { get; private set; }
 

@@ -13,6 +13,8 @@ public sealed class MemoryFileEntry : IFileEntry
     public string Name { get; init; }
     public DateTime LastAccessTime { get; init; }
     public DateTime LastWriteTime { get; init; }
+    public DateTime CreationTime { get; init; }
+    public DateTime ChangeTime { get; init; }
     public long Size { get; init; }
     public string FullPath { get; init; }
     public string OwnerUsername { get; init; }
@@ -89,10 +91,10 @@ public class ExpressionMatchTests
     // Ensure nothing is using the wrong match method. It's possible for
     // most of the tests to pass as those it has the inner globs.
     [Test]
-    [TestCase("foobar", nameof(ExpressionMatch.NameEquals))]
-    [TestCase("foobar*", nameof(ExpressionMatch.NameStartsWith))]
-    [TestCase("*foobar", nameof(ExpressionMatch.NameEndsWith))]
-    [TestCase("*foobar*", nameof(ExpressionMatch.NameContains))]
+    [TestCase("foobar", nameof(ExpressionMatch.EqualsMatch))]
+    [TestCase("foobar*", nameof(ExpressionMatch.StartsWithMatch))]
+    [TestCase("*foobar", nameof(ExpressionMatch.EndsWithMatch))]
+    [TestCase("*foobar*", nameof(ExpressionMatch.ContainsMatch))]
     [TestCase("foo*bar", nameof(ExpressionMatch.RegexMatch))]
     [TestCase("*foo*bar*", nameof(ExpressionMatch.RegexMatch))]
     [TestCase("*foo*bar", nameof(ExpressionMatch.RegexMatch))]

@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
 using find2.IO;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace find2;
 
@@ -129,6 +129,122 @@ internal sealed class PrintFPrinterCommandArgumentlessDirective(char directive) 
     }
 }
 
+internal sealed class PrintFPrinterCommandDirective(char directive, char command) : PrintFPrinterCommand
+{
+    public override void Format(IFileEntry entry, StringBuilder target)
+    {
+        switch (directive)
+        {
+            case 'A':
+                FormatAccessTime(entry.LastAccessTime.ToLocalTime(), command, target);
+                break;
+            case 'B':
+                FormatAccessTime(entry.CreationTime.ToLocalTime(), command, target);
+                break;
+            case 'C':
+                FormatAccessTime(entry.ChangeTime.ToLocalTime(), command, target);
+                break;
+            case 'T':
+                FormatAccessTime(entry.LastWriteTime.ToLocalTime(), command, target);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException("TODO");
+        }
+    }
+
+    private static void FormatAccessTime(DateTime dateTime, char directive, StringBuilder target)
+    {
+        // In general this code should avoid dateTime.ToString when it can, to prevent an intermediate
+        // string allocation, but all in all, this code is not frequently used and does not need to
+        // be optimized, so favor legible code over fast code.
+        switch (directive)
+        {
+            // H      hour (00..23)
+            // k      hour ( 0..23)
+            case 'H':
+            case 'k':
+                target.AppendTwoDigitsLeftSpaced(dateTime.Hour, directive == 'H' ? '0' : ' ');
+                break;
+            // I      hour (01..12)
+            // l      hour ( 1..12)
+            case 'I':
+            case 'l':
+                var padding = directive == 'I' ? '0' : ' ';
+                target.AppendTwoDigitsLeftSpaced(dateTime.Hour > 12 ? dateTime.Hour % 12 : dateTime.Hour, padding);
+                break;
+            // M      minute (00..59)
+            case 'M': target.AppendTwoDigitsLeftSpaced(dateTime.Minute, '0'); break;
+            // p      locale's AM or PM
+            case 'p': target.Append(dateTime.ToString("tt")); break;
+            // r      time, 12-hour (hh:mm:ss [AP]M)
+            case 'r': target.Append(dateTime.ToString("hh:mm:ss tt")); break;
+            // S      Second (00.00 .. 61.00).  There is a fractional part.
+            case 'S': target.Append(dateTime.ToString("ss.fffffff000")); break;
+            // T      time, 24-hour (hh:mm:ss.xxxxxxxxxx)
+            case 'T': target.Append(dateTime.ToString("hh:mm:ss.fffffff000")); break;
+            // +      Date and time, separated by `+', for example
+            //        `2004-04-28+22:22:05.0'.  This is a GNU
+            //        extension.  The time is given in the current
+            //        timezone (which may be affected by setting
+            //        the TZ environment variable).  The seconds
+            //        field includes a fractional part.
+            case '+': target.Append(dateTime.ToString("yyyy-MM-dd+hh:mm:ss.fffffff000")); break;
+            // X      locale's time representation (H:M:S).  The
+            //        seconds field includes a fractional part.
+            // TODO: This is wrong.
+            case 'X': goto case 'T';
+            // Z      time zone (e.g., EDT), or nothing if no time
+            //        zone is determinable
+            case 'Z': target.Append(dateTime.Kind == DateTimeKind.Local ? TimeZoneInfo.Local : dateTime.Kind); break;
+            // a      locale's abbreviated weekday name (Sun..Sat)
+            case 'a': target.Append(dateTime.ToString("ddd")); break;
+            // A      locale's full weekday name, variable length
+            //        (Sunday..Saturday)
+            case 'A': target.Append(dateTime.ToString("dddd")); break;
+            // b      locale's abbreviated month name (Jan..Dec)
+            case 'b': target.Append(dateTime.ToString("MMM")); break;
+            // B locale's full month name, variable length (January..December)
+            case 'B': target.Append(dateTime.ToString("MMMM")); break;
+            case 'c': target.AppendAsciiDateTimeNoFractions(dateTime); break;
+            // d      day of month (01..31)
+            case 'd': target.AppendTwoDigitsLeftSpaced(dateTime.Day, '0'); break;
+            // D      date (mm/dd/yy)
+            case 'D': target.Append(dateTime.ToString("MM\\\\dd\\\\yy")); break;
+            // F      date (yyyy-mm-dd)
+            case 'F': target.Append(dateTime.ToString("yyyy-MM-dd")); break;
+            // h      same as b
+            case 'h': goto case 'b';
+            // j      day of year (001..366)
+            case 'j': target.Append(dateTime.DayOfYear.ToString("000")); break;
+            // m      month (01..12)
+            case 'm': target.AppendTwoDigitsLeftSpaced(dateTime.Month, '0'); break;
+            // U      week number of year with Sunday as first day of week (00..53)
+            case 'U':
+                var weekOfYear = CultureInfo.InvariantCulture.Calendar
+                    .GetWeekOfYear(dateTime, CalendarWeekRule.FirstFullWeek, DayOfWeek.Sunday);
+                target.AppendTwoDigitsLeftSpaced(weekOfYear, '0');
+                break;
+            // w      day of week (0..6)
+            case 'w': target.Append((int)dateTime.DayOfWeek); break;
+            // W      week number of year with Monday as first day of week (00..53)
+            case 'W':
+                var weekOfYearMonday = CultureInfo.InvariantCulture.Calendar
+                    .GetWeekOfYear(dateTime, CalendarWeekRule.FirstFullWeek, DayOfWeek.Monday);
+                target.AppendTwoDigitsLeftSpaced(weekOfYearMonday, '0');
+                break;
+            // x      locale's date representation (mm/dd/yy)
+            // TODO: Uh, is it just 'd' or is it current locale based?
+            case 'x': goto case 'D';
+            // y      last two digits of year (00..99)
+            case 'y': target.Append(dateTime.ToString("yy")); break;
+            // Y      year (1970...)
+            case 'Y': target.Append(dateTime.Year); break;
+            default:
+                throw new ArgumentOutOfRangeException("TODO");
+        }
+    }
+}
+
 internal sealed class PrintFPrinter(string format)
 {
     private readonly IReadOnlyList<PrintFPrinterCommand> _commands = Parse(format);
@@ -164,7 +280,7 @@ internal sealed class PrintFPrinter(string format)
             {
                 if (format.Length - i < 2)
                 {
-                    throw new ArgumentException("Final character can not be a backslash, perhaps try \\", nameof(format));
+                    throw new ArgumentException("Final character can not be an unescaped backslash.", nameof(format));
                 }
 
                 var octalValue = 0;
@@ -185,10 +301,11 @@ internal sealed class PrintFPrinter(string format)
                     // See `parse_octal_escape` in official source.
                     if (char.MaxValue < octalValue)
                     {
-                        throw new ArgumentOutOfRangeException(nameof(format), octalValue, $"Unexpected escaped character value. Value is greater than {char.MaxValue}.");
+                        throw new ArgumentOutOfRangeException(
+                            nameof(format), octalValue,
+                            $"Unexpected escaped character value. Value is greater than {char.MaxValue}.");
                     }
                     commands.Add(new PrintFPrinterCommandLiteral(((char)octalValue).ToString()));
-                    // throw new Exception("TODO: Write support for this.");
                     continue;
                 }
 
@@ -243,9 +360,19 @@ internal sealed class PrintFPrinter(string format)
                     case 'y':
                         commands.Add(new PrintFPrinterCommandArgumentlessDirective(directiveChar));
                         break;
+                    case 'A':
+                    case 'B':
+                    case 'C':
+                    case 'T':
+                        if (i == format.Length - 1) throw new ArgumentOutOfRangeException("TODO");
+                        commands.Add(new PrintFPrinterCommandDirective(directiveChar, format[++i]));
+                        break;
                     default:
+                        // This breaks from the existing implementation of find, which will simply print this
+                        // character out. That's... such a bad idea, that I'm breaking from the implementation there.
                         throw new ArgumentOutOfRangeException(
-                            nameof(format), directiveChar, "Unknown directive character in printf format string.");
+                            nameof(format), directiveChar,
+                            "Unknown directive character in printf format string.");
                 }
 
                 continue;
